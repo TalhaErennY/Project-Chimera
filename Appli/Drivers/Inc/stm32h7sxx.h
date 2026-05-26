@@ -1,8 +1,23 @@
 /*
- * stm32h7sxxx.h
+ * stm32h7sxx.h
  *
- *  Created on: May 16, 2026
- *      Author: talha
+ * Bare-metal register definitions for STM32H7S3 / STM32H7Rx/7Sx devices.
+ *
+ * This file contains:
+ *  - Cortex-M7 core peripheral base addresses, such as NVIC
+ *  - STM32H7Sxx memory and peripheral base addresses
+ *  - C register maps for selected peripherals
+ *  - Peripheral pointer definitions
+ *  - Peripheral clock enable/disable helper macros
+ *  - IRQ number definitions
+ *
+ * Notes:
+ *  - All peripheral registers are declared volatile because their values can
+ *    change outside the normal program flow by hardware.
+ *  - Address and bit definitions are based on STM32H7Rx/7Sx RM0477.
+ *
+ * Created on: May 16, 2026
+ * Author: talha
  */
 
 #ifndef INC_STM32H7SXX_H_
@@ -10,37 +25,123 @@
 
 #include <stdint.h>
 
+/*
+ * Access qualifier for memory-mapped peripheral registers.
+ *
+ * volatile tells the compiler not to optimize away reads/writes because
+ * hardware can change these register values independently from the C code.
+ */
 #define __vo volatile
-/*
- *========================BIT MANIPULATION MACROS=============================================
- */
 
-#define SET_BIT(REG, MASK)				((REG) |= (MASK))
-#define CLEAR_BIT(REG, MASK)			((REG) &= ~(MASK))
-#define READ_BIT(REG, MASK)				((REG) & (MASK))
-#define MODIFY_REG(REG, MASK, VAL)		((REG) = (((REG) & ~(MASK)) | ((VAL) & (MASK))))
+/* ========================================================================== */
+/*                         Cortex-M7 NVIC definitions                         */
+/* ========================================================================== */
 
 /*
- *=============================================================================================
- *============================BASE ADDRESSES===================================================
- *=============================================================================================
+ * NVIC register base addresses.
+ *
+ * ISER: Interrupt Set-Enable Registers
+ *       Writing 1 to a bit enables the corresponding IRQ.
+ *
+ * ICER: Interrupt Clear-Enable Registers
+ *       Writing 1 to a bit disables the corresponding IRQ.
+ *
+ * IPR : Interrupt Priority Registers
+ *       Each IRQ has an 8-bit priority field. On STM32H7, only the upper
+ *       implemented priority bits are used.
  */
+#define NVIC_ISER_BASEADDR              (0xE000E100UL)
+#define NVIC_ICER_BASEADDR              (0xE000E180UL)
+#define NVIC_IPR_BASEADDR               (0xE000E400UL)
 
 /*
- *======================== base addresses of Flash and SRAM Memories=========================
+ * ISER and ICER are accessed as 32-bit register arrays:
+ *
+ * NVIC_ISER[0] -> IRQ 0  - 31
+ * NVIC_ISER[1] -> IRQ 32 - 63
+ * NVIC_ISER[2] -> IRQ 64 - 95
+ * ...			-> ...
+ * NVIC_ISER[7] -> IRQ 223 - 255
  */
+#define NVIC_ISER                       ((__vo uint32_t*)NVIC_ISER_BASEADDR)
+#define NVIC_ICER                       ((__vo uint32_t*)NVIC_ICER_BASEADDR)
 
+/*
+ * IPR is accessed byte-by-byte.
+ *
+ * Reason:
+ * Each IRQ has one 8-bit priority field. Therefore NVIC_IPR[IRQNumber]
+ * directly points to the priority byte of that IRQ.
+ */
+#define NVIC_IPR                        ((__vo uint8_t*)NVIC_IPR_BASEADDR)
+
+/*
+ * Number of priority bits implemented by STM32H7 NVIC.
+ *
+ * Priority register fields are 8-bit wide, but only the upper implemented
+ * bits are effective. With 4 implemented bits, valid logical priority values
+ * are 0-15.
+ *
+ * Priority 0  -> highest priority
+ * Priority 15 -> lowest priority
+ */
+#define NVIC_PRIO_BITS_IMPLEMENTED      4U
+#define NVIC_PRIORITY_SHIFT             (8U - NVIC_PRIO_BITS_IMPLEMENTED)
+#define NVIC_PRIORITY_MAX               ((1U << NVIC_PRIO_BITS_IMPLEMENTED) - 1U)
+
+/* ==========================================================================  */
+/*                         Generic bit manipulation macros                     */
+/* ==========================================================================  */
+
+/*
+ * These macros are used for simple register bit operations.
+ *
+ * SET_BIT    : Sets selected bits in REG.
+ * CLEAR_BIT  : Clears selected bits in REG.
+ * READ_BIT   : Reads selected masked bits from REG.
+ * MODIFY_REG : Clears selected bits first, then writes VAL into the same field.
+ *
+ * Important:
+ * MASK must already be shifted to the correct bit position.
+ * VAL must also be shifted to the correct bit position before calling MODIFY_REG.
+ */
+#define SET_BIT(REG, MASK)              ((REG) |= (MASK))
+#define CLEAR_BIT(REG, MASK)            ((REG) &= ~(MASK))
+#define READ_BIT(REG, MASK)             ((REG) & (MASK))
+#define MODIFY_REG(REG, MASK, VAL)      ((REG) = (((REG) & ~(MASK)) | ((VAL) & (MASK))))
+
+/* ========================================================================== */
+/*                           Memory base addresses                            */
+/* ========================================================================== */
+
+/*
+ * Main memory regions.
+ *
+ * FLASH_BASEADDR:
+ *   User flash memory start address.
+ *
+ * DTCM_RAM_BASEADDR:
+ *   Tightly Coupled Memory, directly connected to the CPU.
+ *   Good for stack, frequently used variables, and time-critical data.
+ *
+ * AXI_SRAMx:
+ *   SRAM connected through the AXI bus matrix.
+ *   Usually better for DMA/peripheral shared buffers than DTCM.
+ *
+ * BACKUP SRAM:
+ *   Retained in low-power modes when backup domain is supplied.
+ */
 
 #define FLASH_BASEADDR					(0x08000000UL)
-#define DTCM_RAM_BASEADDR				(0x20000000UL)		//standard variables, arrays, RTOS stacks (direct communication with the CPU)
-#define AXI_SRAM1_BASEADDR				(0x24000000UL)		//DMA controller and peripherals
+#define DTCM_RAM_BASEADDR				(0x20000000UL)
+#define AXI_SRAM1_BASEADDR				(0x24000000UL)
 #define AXI_SRAM2_BASEADDR				(0x24020000UL)
 #define AXI_SRAM3_BASEADDR				(0x24040000UL)
 #define AXI_SRAM4_BASEADDR				(0x24080000UL)
-#define AXI_GFXMMU_remap_BASEADDR		(0x25000000UL)
+#define AXI_GFXMMU_REMAP_BASEADDR		(0x25000000UL)
 #define AHB_SRAM1_BASEADDR				(0x30000000UL)
 #define AHB_SRAM2_BASEADDR				(0x30004000UL)
-#define BCKUP_SRAM_BASEADDR				(0x38800000UL)
+#define BKUP_SRAM_BASEADDR				(0x38800000UL)
 
 #define SRAM 							DTCM_RAM_BASEADDR
 
@@ -1402,10 +1503,7 @@ typedef struct{
 	uint32_t reserved_6;			//0x11C ---
 	__vo uint32_t BKLOCKR;			//0x120 SBS_BKLOCKR
 	uint32_t reserved_7[3];		//0x124-0x12C ---
-	__vo uint32_t EXTICR1;			//0x130 SBS_EXTICR1
-	__vo uint32_t EXTICR2;			//0x134 SBS_EXTICR2
-	__vo uint32_t EXTICR3;			//0x138 SBS_EXTICR3
-	__vo uint32_t EXTICR4;			//0x13C SBS_EXTICR4
+	__vo uint32_t EXTICR[4];			//0x130 SBS_EXTICR1 | 0x134 SBS_EXTICR2 | 0x138 SBS_EXTICR3 | 0x13C SBS_EXTICR4
 } SBS_RegDef_t;
 
 //===========================SDMMC CONFIGURATION===============================================
@@ -2098,6 +2196,50 @@ typedef struct{
 #define DCMIPP_PCLK_DI()                (RCC->APB5ENR &= ~(1UL << 2U))
 #define GFXTIM_PCLK_DI()                (RCC->APB5ENR &= ~(1UL << 4U))
 
+/*
+ * IRQ (Interrupt Request) Number of STM32H7S3 MCU
+ * Source: RM0477 Rev 9, Section 19.1.2, Table 142 NVIC
+ *
+ * NOTE: STM32H7Rx/7Sx'te EXTI5_9 veya EXTI10_15 gibi gruplanmış IRQ yok.
+ *       EXTI0 - EXTI15 ayrı ayrı IRQn değerlerine sahip.
+ */
+
+#define IRQ_NO_EXTI0              		16
+#define IRQ_NO_EXTI1              		17
+#define IRQ_NO_EXTI2              		18
+#define IRQ_NO_EXTI3              		19
+#define IRQ_NO_EXTI4              		20
+#define IRQ_NO_EXTI5              		21
+#define IRQ_NO_EXTI6              		22
+#define IRQ_NO_EXTI7              		23
+#define IRQ_NO_EXTI8              		24
+#define IRQ_NO_EXTI9              		25
+#define IRQ_NO_EXTI10            		26
+#define IRQ_NO_EXTI11             		27
+#define IRQ_NO_EXTI12             		28
+#define IRQ_NO_EXTI13             		29
+#define IRQ_NO_EXTI14             		30
+#define IRQ_NO_EXTI15             		31
+
+/*
+ * IRQ Priority Levels
+ */
+#define NVIC_IRQ_PRIO0					0U
+#define NVIC_IRQ_PRIO1					1U
+#define NVIC_IRQ_PRIO2					2U
+#define NVIC_IRQ_PRIO3					3U
+#define NVIC_IRQ_PRIO4					4U
+#define NVIC_IRQ_PRIO5					5U
+#define NVIC_IRQ_PRIO6					6U
+#define NVIC_IRQ_PRIO7					7U
+#define NVIC_IRQ_PRIO8					8U
+#define NVIC_IRQ_PRIO9					9U
+#define NVIC_IRQ_PRIO10					10U
+#define NVIC_IRQ_PRIO11					11U
+#define NVIC_IRQ_PRIO12					12U
+#define NVIC_IRQ_PRIO13					13U
+#define NVIC_IRQ_PRIO14					14U
+#define NVIC_IRQ_PRIO15					15U
 /*
  * Other macros~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */

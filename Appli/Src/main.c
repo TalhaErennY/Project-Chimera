@@ -18,9 +18,16 @@
 
 #include <stdint.h>
 #include "stm32h7sxx.h"
+#include "TestCodes.h"
 
 int main(void)
 {
-    /* Loop forever */
-	for(;;);
+	/*Test Functions**********************/
+
+	/*GPIO Driver Test Functions*/
+	//Test_001_Led_Toggle();
+	//Test_002_Led_Button_Toggle();
+	//Test_003_Led_Button_Toggle_IRQ();
+
+    while(1);
 }

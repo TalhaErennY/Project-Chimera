@@ -21,7 +21,9 @@
  *
  * @return			- none
  *
- * @Note			- none
+ * @Note			- GPIO ports are spaced by 0x400 bytes.
+ * 					- RCC AHB4ENR/AHB4RSTR bit positions match the port index:
+ *					- GPIOA=0, GPIOB=1, ..., GPIOH=7, GPIOM=12, ..., GPIOP=15.
  *
  */
 void GPIO_PeriClockControl(GPIO_RegDef_t *pGPIOx, uint8_t ENorDI)
@@ -29,15 +31,20 @@ void GPIO_PeriClockControl(GPIO_RegDef_t *pGPIOx, uint8_t ENorDI)
 	uintptr_t gpio_addr = (uintptr_t)pGPIOx;
 	uint32_t port_index;
 
-	if(((gpio_addr - GPIOA_BASEADDR) % 0x400UL) != 0U)
-	{
-	    return;
-	}
-
 	if((gpio_addr >= GPIOA_BASEADDR) && (gpio_addr <= GPIOH_BASEADDR)){
+		if(((gpio_addr - GPIOA_BASEADDR) % 0x400UL) != 0U)
+		{
+		    return;
+		}
+
 		port_index = (gpio_addr - GPIOA_BASEADDR) / 0x400UL;
 	} else if ((gpio_addr >= GPIOM_BASEADDR) && (gpio_addr <= GPIOP_BASEADDR)){
-		port_index = (gpio_addr - GPIOA_BASEADDR) / 0x400UL;
+	    if(((gpio_addr - GPIOM_BASEADDR) % 0x400UL) != 0U)
+	    {
+	        return;
+	    }
+
+	    port_index = 12U + ((gpio_addr - GPIOM_BASEADDR) / 0x400UL);
 	} else{
 		//Error invalid port address
 		return;
@@ -68,13 +75,19 @@ void GPIO_PeriClockControl(GPIO_RegDef_t *pGPIOx, uint8_t ENorDI)
  *
  * @return			- none
  *
- * @Note			- none
+ * @Note			- GPIO ports are spaced by 0x400 bytes.
+ * 					- SBS_EXTICRx bit values match the port indexes:
+ *					- PA=0, PB=1, ..., PH=7, PM=12, ..., PP=15.
  *
  */
 void GPIO_Init(GPIO_Handle_t *pGPIOHandle){
+	if(pGPIOHandle == 0) return; //Unknown Handler Config
+
 	//Temp register
 	uint32_t temp = 0;
 	uint32_t pin = pGPIOHandle->GPIO_PinConfig.GPIO_PinNumber;
+
+	if(pin > 15U) return;		 //Unknown Pin Number
 
 	//1. Configure the mode of GPIO Pin
 	if(pGPIOHandle->GPIO_PinConfig.GPIO_PinMode <= GPIO_MODE_ANALOG){
@@ -83,7 +96,68 @@ void GPIO_Init(GPIO_Handle_t *pGPIOHandle){
 		pGPIOHandle->pGPIOx->MODER &= ~(3U << (2U * pin));
 		pGPIOHandle->pGPIOx->MODER |= temp;
 	}else{
-		//interrupts modes (later)
+		//interrupts modes
+
+		//Automatically Changing the mode to input mode for interrupt handling
+		pGPIOHandle->pGPIOx->MODER &= ~(3UL << (2U * pin));   			// input mode = 00
+
+		if(pGPIOHandle->GPIO_PinConfig.GPIO_PinMode == GPIO_MODE_IT_FT){
+			//Falling edge trigger configuration
+			//1. Configure the FTSR
+			EXTI->FTSR1 |= (1U << pin);
+			//Clear the corresponding RTSR bit
+			EXTI->RTSR1 &= ~(1U << pin);
+		} else if(pGPIOHandle->GPIO_PinConfig.GPIO_PinMode == GPIO_MODE_IT_RT){
+			//Rising edge trigger configuration
+			//1. Configure the RTSR
+			EXTI->RTSR1 |= (1U << pin);
+			//Clear the corresponding FTSR bit
+			EXTI->FTSR1 &= ~(1U << pin);
+		} else if(pGPIOHandle->GPIO_PinConfig.GPIO_PinMode == GPIO_MODE_IT_RFT){
+			//Rising and Falling edge trigger configuration
+			//1. Configure both FTSR and RTSR
+			EXTI->RTSR1 |= (1U << pin);
+			EXTI->FTSR1 |= (1U << pin);
+		} else{
+			//sth went wrong (no valid irq mode config, invalid edge trigger)
+			return;
+		}
+
+		//2.Configure the GPIO port selection in
+		//automatically activates the clock APB4 for SBS
+		SBS_PCLK_EN();
+
+		uintptr_t gpio_addr = (uintptr_t)pGPIOHandle->pGPIOx;
+		uint32_t port_index;
+
+		if((gpio_addr >= GPIOA_BASEADDR) && (gpio_addr <= GPIOH_BASEADDR)){
+			if(((gpio_addr - GPIOA_BASEADDR) % 0x400UL) != 0U)
+			{
+				return;
+			}
+
+			port_index = (gpio_addr - GPIOA_BASEADDR) / 0x400UL;
+		} else if ((gpio_addr >= GPIOM_BASEADDR) && (gpio_addr <= GPIOP_BASEADDR)){
+		    if(((gpio_addr - GPIOM_BASEADDR) % 0x400UL) != 0U)
+		    {
+		        return;
+		    }
+
+		    port_index = 12U + ((gpio_addr - GPIOM_BASEADDR) / 0x400UL);
+		} else{
+			//Error invalid port address
+			return;
+		}
+
+		uint32_t exticr_index = (pin / 4U);
+		uint32_t exticr_shift = ((pin % 4U) * 4U);
+
+		SBS->EXTICR[exticr_index] &= ~(0xFUL << exticr_shift);
+		SBS->EXTICR[exticr_index] |= (port_index << exticr_shift);
+
+		//3. Enable the EXTI interrupt delivery using IMR
+		EXTI->IMR1 |= (1U << pin);
+
 	}
 	temp = 0;
 
@@ -131,26 +205,38 @@ void GPIO_Init(GPIO_Handle_t *pGPIOHandle){
  *
  * @return			- none
  *
- * @Note			- none
+ * @Note			- GPIO ports are spaced by 0x400 bytes.
+ * 					- RCC AHB4ENR/AHB4RSTR bit positions match the port index:
+ *					- GPIOA=0, GPIOB=1, ..., GPIOH=7, GPIOM=12, ..., GPIOP=15.
  *
  */
 void GPIO_DeInit(GPIO_RegDef_t *pGPIOx){
 	uintptr_t gpio_addr = (uintptr_t)pGPIOx;
 	uint32_t port_index;
 
-	//GPIOA to GPIOP converted numerically 0 to 12
+	//GPIOA-GPIOH and GPIOM-GPIOP converted to AHB4RSTR/AHB4ENR bit positions
 	if((gpio_addr >= GPIOA_BASEADDR) && (gpio_addr <= GPIOH_BASEADDR)){
+		if(((gpio_addr - GPIOA_BASEADDR) % 0x400UL) != 0U)
+		{
+		    return;
+		}
+
 		port_index = (gpio_addr - GPIOA_BASEADDR) / 0x400UL;
 	} else if ((gpio_addr >= GPIOM_BASEADDR) && (gpio_addr <= GPIOP_BASEADDR)){
-		port_index = (gpio_addr - GPIOA_BASEADDR) / 0x400UL;
+	    if(((gpio_addr - GPIOM_BASEADDR) % 0x400UL) != 0U)
+	    {
+	        return;
+	    }
+
+	    port_index = 12U + ((gpio_addr - GPIOM_BASEADDR) / 0x400UL);
 	} else{
 		//Error invalid port address
 		return;
 	}
 
 	//reset and remove reset
-	RCC->AHB4RSTR |= (1U << port_index);
-	RCC->AHB4RSTR &= ~(1U << port_index);
+	RCC->AHB4RSTR |= (1UL << port_index);
+	RCC->AHB4RSTR &= ~(1UL << port_index);
 
 }
 
@@ -173,7 +259,9 @@ void GPIO_DeInit(GPIO_RegDef_t *pGPIOx){
  *
  */
 uint8_t GPIO_ReadFromInputPin(GPIO_RegDef_t *pGPIOx, uint8_t PinNumber){
+	if(pGPIOx == 0 || PinNumber > 15U) return 0;   // No Valid Pin Number
 
+	return (uint8_t)((pGPIOx->IDR >> PinNumber) & 1U);
 }
 
 /****************************************************************************
@@ -191,7 +279,9 @@ uint8_t GPIO_ReadFromInputPin(GPIO_RegDef_t *pGPIOx, uint8_t PinNumber){
  *
  */
 uint16_t GPIO_ReadFromInputPort(GPIO_RegDef_t *pGPIOx){
+	if(pGPIOx == 0) return 0; // No Valid GPIO Address
 
+	return (uint16_t)(pGPIOx->IDR & 0xFFFFU);
 }
 
 /****************************************************************************
@@ -205,11 +295,19 @@ uint16_t GPIO_ReadFromInputPort(GPIO_RegDef_t *pGPIOx){
  *
  * @return			- none
  *
- * @Note			- none
+ * @Note			- This function uses BSRR to atomic write of a bit
  *
  */
 void GPIO_WriteToOutputPin(GPIO_RegDef_t *pGPIOx, uint8_t PinNumber, uint8_t Value){
+	if(pGPIOx == 0 || PinNumber > 15U) return;   // No Valid Pin Number/GPIO Address
 
+	if(Value == GPIO_PIN_SET){
+		pGPIOx->BSRR = (1UL << PinNumber);
+	}else if (Value == GPIO_PIN_RESET){
+		pGPIOx->BSRR = (1UL << (PinNumber + 16U));
+	}else{
+		//error
+	}
 }
 
 /****************************************************************************
@@ -227,7 +325,9 @@ void GPIO_WriteToOutputPin(GPIO_RegDef_t *pGPIOx, uint8_t PinNumber, uint8_t Val
  *
  */
 void GPIO_WriteToOutputPort(GPIO_RegDef_t *pGPIOx, uint16_t Value){
+	if(pGPIOx == 0) return;  // No Valid GPIO Address
 
+	pGPIOx->ODR = (pGPIOx->ODR & ~0xFFFFU) | ((uint32_t)Value & 0xFFFFU);
 }
 
 /****************************************************************************
@@ -245,7 +345,9 @@ void GPIO_WriteToOutputPort(GPIO_RegDef_t *pGPIOx, uint16_t Value){
  *
  */
 void GPIO_ToggleOutputPin(GPIO_RegDef_t *pGPIOx, uint8_t PinNumber){
+	if(pGPIOx == 0 || PinNumber > 15U) return;   // No Valid Pin Number/GPIO Address
 
+	pGPIOx->ODR ^= (1UL << PinNumber);
 }
 
 /*
@@ -253,25 +355,57 @@ void GPIO_ToggleOutputPin(GPIO_RegDef_t *pGPIOx, uint8_t PinNumber){
  */
 
 /****************************************************************************
- * @fn				- GPIO_IRQConfig
+ * @fn				- GPIO_IRQInterruptConfig
  *
  * @brief			- This function configures the IRQ settings for GPIOs
  *
  * @param[in]		- IRQ Number
- * @param[in]		- priority for the IRQ
  * @param[in]		- ENABLE or DISABLE macros
+ * @param[in]		-
  *
  * @return			- none
  *
  * @Note			- none
  *
  */
-void GPIO_IRQConfig(uint8_t IRQNumber, uint8_t IRQPriority, uint8_t ENorDI){
+void GPIO_IRQInterruptConfig(uint8_t IRQNumber, uint8_t ENorDI){
+	if(IRQNumber > 155U) return;		//Invalid IRQ Number
 
+	if(ENorDI == ENABLE){
+		//Program ISERx Register
+		NVIC_ISER[IRQNumber / 32U] = (1U << (IRQNumber % 32U));
+	} else if (ENorDI == DISABLE){
+		//Program ICERx Register
+		NVIC_ICER[IRQNumber / 32U] = (1U << (IRQNumber % 32U));
+	} else {
+		//Invalid Value for enable or disable
+		return;
+	}
 }
 
 /****************************************************************************
- * @fn				- GPIO_IRQConfig
+ * @fn				- GPIO_IRQPriorityConfig
+ *
+ * @brief			- This function configures the IRQ priority setting for IRQs
+ *
+ * @param[in]		- IRQ Number
+ * @param[in]		- IRQ priority
+ * @param[in]		-
+ *
+ * @return			- none
+ *
+ * @Note			- none
+ *
+ */
+void GPIO_IRQPriorityConfig(uint8_t IRQNumber, uint8_t IRQPriority){
+	if(IRQNumber > 155U) return;		//Invalid IRQ Number
+	if(IRQPriority > 15U) return;		//Invalid IRQ Priority
+
+	NVIC_IPR[IRQNumber] = (IRQPriority << NVIC_PRIORITY_SHIFT);
+}
+
+/****************************************************************************
+ * @fn				- GPIO_IRQHandling
  *
  * @brief			- This function handles the IRS for the triggered IRQ
  *
@@ -285,5 +419,10 @@ void GPIO_IRQConfig(uint8_t IRQNumber, uint8_t IRQPriority, uint8_t ENorDI){
  *
  */
 void GPIO_IRQHandling(uint8_t PinNumber){
-	//what happens if irq triggered
+	//If the event occured clear the pending register for the corresponding bit
+	if(PinNumber > 15U) return;
+
+	if(EXTI->PR1 & (1UL << PinNumber)){
+		EXTI->PR1 = (1UL << PinNumber);
+	}
 }
