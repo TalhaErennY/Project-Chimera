@@ -12,10 +12,10 @@ The first milestone is to build a custom low-level driver layer for the STM32H7S
 - GPIO input/output APIs
 - BSRR-based GPIO pin write
 - ODR-based GPIO pin toggle
+- EXTI interrupt support
 
 ## Planned Features
 
-- EXTI interrupt support
 - UART driver
 - I2C driver
 - SPI driver

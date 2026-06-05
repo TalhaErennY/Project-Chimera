@@ -18,10 +18,10 @@ void Test_001_Led_Toggle(void){
 	GPIO_Handle_t GPIOLed;
 
 	GPIOLed.pGPIOx = GPIOB;
-	GPIOLed.GPIO_PinConfig.GPIO_PinNumber = GPIO_PIN_NO_10;
-	GPIOLed.GPIO_PinConfig.GPIO_PinMode	  = GPIO_MODE_OUT;
+	GPIOLed.GPIO_PinConfig.GPIO_PinNumber   = GPIO_PIN_NO_10;
+	GPIOLed.GPIO_PinConfig.GPIO_PinMode	    = GPIO_MODE_OUT;
 	GPIOLed.GPIO_PinConfig.GPIO_PinPuPdCtrl = GPIO_PUPD_PU;
-	GPIOLed.GPIO_PinConfig.GPIO_PinOPType = GPIO_OP_TYPE_OD;
+	GPIOLed.GPIO_PinConfig.GPIO_PinOPType   = GPIO_OP_TYPE_OD;
 
 	GPIO_PeriClockControl(GPIOB, ENABLE);
 

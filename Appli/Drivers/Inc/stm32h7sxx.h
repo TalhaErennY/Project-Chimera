@@ -2197,6 +2197,145 @@ typedef struct{
 #define GFXTIM_PCLK_DI()                (RCC->APB5ENR &= ~(1UL << 4U))
 
 /*
+ *=============================================================================================
+ *============================OTHER MACROS=====================================
+ *=============================================================================================
+ */
+
+//================================= I2C Bit Position Macros =================================
+/*
+ * Bit position definitions for I2C_CR1
+ */
+#define I2C_CR1_PE                  0U      // Peripheral enable
+#define I2C_CR1_TXIE                1U      // TX interrupt enable
+#define I2C_CR1_RXIE                2U      // RX interrupt enable
+#define I2C_CR1_ADDRIE              3U      // Address match interrupt enable
+#define I2C_CR1_NACKIE              4U      // Not acknowledge interrupt enable
+#define I2C_CR1_STOPIE              5U      // STOP detection interrupt enable
+#define I2C_CR1_TCIE                6U      // Transfer complete interrupt enable
+#define I2C_CR1_ERRIE               7U      // Error interrupt enable
+
+#define I2C_CR1_DNF                 8U      // Digital noise filter, 4 bits: [11:8]
+#define I2C_CR1_ANFOFF              12U     // Analog noise filter OFF
+#define I2C_CR1_TXDMAEN             14U     // TX DMA enable
+#define I2C_CR1_RXDMAEN             15U     // RX DMA enable
+
+#define I2C_CR1_SBC                 16U     // Slave byte control
+#define I2C_CR1_NOSTRETCH           17U     // Clock stretching disable
+#define I2C_CR1_WUPEN               18U     // Wakeup from Stop mode enable
+#define I2C_CR1_GCEN                19U     // General call enable
+#define I2C_CR1_SMBHEN              20U     // SMBus host address enable
+#define I2C_CR1_SMBDEN              21U     // SMBus device default address enable
+#define I2C_CR1_ALERTEN             22U     // SMBus alert enable
+#define I2C_CR1_PECEN               23U     // Packet error checking enable
+#define I2C_CR1_FMP                 24U     // Fast-mode Plus drive enable
+
+#define I2C_CR1_ADDRACLR            30U     // ADDR flag automatic clear
+#define I2C_CR1_STOPFACLR           31U     // STOPF flag automatic clear
+
+/*
+ * Bit position definitions for I2C_CR2
+ */
+#define I2C_CR2_SADD                0U      // Slave address, 10 bits: [9:0]
+#define I2C_CR2_RD_WRN              10U     // Transfer direction
+#define I2C_CR2_ADD10               11U     // 10-bit addressing mode
+#define I2C_CR2_HEAD10R             12U     // 10-bit address header only read direction
+#define I2C_CR2_START               13U     // START generation
+#define I2C_CR2_STOP                14U     // STOP generation
+#define I2C_CR2_NACK                15U     // NACK generation
+
+#define I2C_CR2_NBYTES              16U     // Number of bytes, 8 bits: [23:16]
+#define I2C_CR2_RELOAD              24U     // NBYTES reload mode
+#define I2C_CR2_AUTOEND             25U     // Automatic end mode
+#define I2C_CR2_PECBYTE             26U     // Packet error checking byte
+
+/*
+ * Bit position definitions for I2C_OAR1
+ */
+#define I2C_OAR1_OA1                0U      // Own address 1, bits depend on 7/10-bit mode
+#define I2C_OAR1_OA1MODE            10U     // Own address 1 mode
+#define I2C_OAR1_OA1EN              15U     // Own address 1 enable
+
+/*
+ * Bit position definitions for I2C_OAR2
+ */
+#define I2C_OAR2_OA2                1U      // Own address 2, 7 bits: [7:1]
+#define I2C_OAR2_OA2MSK             8U      // Own address 2 mask, 3 bits: [10:8]
+#define I2C_OAR2_OA2EN              15U     // Own address 2 enable
+
+/*
+ * Bit position definitions for I2C_TIMINGR
+ */
+#define I2C_TIMINGR_SCLL            0U      // SCL low period, 8 bits: [7:0]
+#define I2C_TIMINGR_SCLH            8U      // SCL high period, 8 bits: [15:8]
+#define I2C_TIMINGR_SDADEL          16U     // SDA delay, 4 bits: [19:16]
+#define I2C_TIMINGR_SCLDEL          20U     // SCL delay, 4 bits: [23:20]
+#define I2C_TIMINGR_PRESC           28U     // Timing prescaler, 4 bits: [31:28]
+
+/*
+ * Bit position definitions for I2C_TIMEOUTR
+ */
+#define I2C_TIMEOUTR_TIMEOUTA       0U      // Bus timeout A, 12 bits: [11:0]
+#define I2C_TIMEOUTR_TIDLE          12U     // Idle clock timeout detection
+#define I2C_TIMEOUTR_TIMOUTEN       15U     // Clock timeout enable
+
+#define I2C_TIMEOUTR_TIMEOUTB       16U     // Bus timeout B, 12 bits: [27:16]
+#define I2C_TIMEOUTR_TEXTEN         31U     // Extended clock timeout enable
+
+/*
+ * Bit position definitions for I2C_ISR
+ */
+#define I2C_ISR_TXE                 0U      // TX data register empty
+#define I2C_ISR_TXIS                1U      // TX interrupt status
+#define I2C_ISR_RXNE                2U      // RX data register not empty
+#define I2C_ISR_ADDR                3U      // Address matched
+#define I2C_ISR_NACKF               4U      // NACK received flag
+#define I2C_ISR_STOPF               5U      // STOP detection flag
+#define I2C_ISR_TC                  6U      // Transfer complete
+#define I2C_ISR_TCR                 7U      // Transfer complete reload
+
+#define I2C_ISR_BERR                8U      // Bus error
+#define I2C_ISR_ARLO                9U      // Arbitration lost
+#define I2C_ISR_OVR                 10U     // Overrun/underrun
+#define I2C_ISR_PECERR              11U     // PEC error
+#define I2C_ISR_TIMEOUT             12U     // Timeout or tLOW detection
+#define I2C_ISR_ALERT               13U     // SMBus alert
+
+#define I2C_ISR_BUSY                15U     // Bus busy
+#define I2C_ISR_DIR                 16U     // Transfer direction, target mode
+#define I2C_ISR_ADDCODE             17U     // Address match code, 7 bits: [23:17]
+
+/*
+ * Bit position definitions for I2C_ICR
+ */
+#define I2C_ICR_ADDRCF              3U      // Address matched flag clear
+#define I2C_ICR_NACKCF              4U      // NACK flag clear
+#define I2C_ICR_STOPCF              5U      // STOP detection flag clear
+
+#define I2C_ICR_BERRCF              8U      // Bus error flag clear
+#define I2C_ICR_ARLOCF              9U      // Arbitration lost flag clear
+#define I2C_ICR_OVRCF               10U     // Overrun/underrun flag clear
+#define I2C_ICR_PECCF               11U     // PEC error flag clear
+#define I2C_ICR_TIMOUTCF            12U     // Timeout flag clear
+#define I2C_ICR_ALERTCF             13U     // Alert flag clear
+
+/*
+ * Bit position definitions for I2C_PECR
+ */
+#define I2C_PECR_PEC                0U      // Packet error checking register, 8 bits: [7:0]
+
+/*
+ * Bit position definitions for I2C_RXDR
+ */
+#define I2C_RXDR_RXDATA             0U      // 8-bit receive data
+
+/*
+ * Bit position definitions for I2C_TXDR
+ */
+#define I2C_TXDR_TXDATA             0U      // 8-bit transmit data
+
+//================================= Interrupt IRQ Number Macros =================================
+/*
  * IRQ (Interrupt Request) Number of STM32H7S3 MCU
  * Source: RM0477 Rev 9, Section 19.1.2, Table 142 NVIC
  *
@@ -2240,15 +2379,19 @@ typedef struct{
 #define NVIC_IRQ_PRIO13					13U
 #define NVIC_IRQ_PRIO14					14U
 #define NVIC_IRQ_PRIO15					15U
-/*
- * Other macros~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- */
 
-#define ENABLE 							1
-#define DISABLE 						0
+//================================= Common Macros =================================
+#define ENABLE 							1U
+#define DISABLE 						0U
+
 #define SET 							ENABLE
 #define RESET 							DISABLE
+
 #define GPIO_PIN_SET					SET
 #define GPIO_PIN_RESET					RESET
+
+#define FLAG_SET            			1U
+#define FLAG_RESET          			0U
+
 
 #endif /* INC_STM32H7SXX_H_ */

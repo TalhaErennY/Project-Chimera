@@ -20,8 +20,7 @@
 #include "stm32h7sxx.h"
 #include "TestCodes.h"
 
-int main(void)
-{
+int main(void){
 	/*Test Functions**********************/
 
 	/*GPIO Driver Test Functions*/
@@ -29,5 +28,9 @@ int main(void)
 	//Test_002_Led_Button_Toggle();
 	//Test_003_Led_Button_Toggle_IRQ();
 
+	/*I2C Driver Test Functions*/
+	Test_004_I2C_ssd1306();
     while(1);
+
+    return 0;
 }
