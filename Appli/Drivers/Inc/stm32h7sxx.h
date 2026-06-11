@@ -1,23 +1,16 @@
 /*
- * stm32h7sxx.h
+ * @file    stm32h7sxx.h
+ * @brief   Device-level register definitions for STM32H7Sxx MCUs.
  *
- * Bare-metal register definitions for STM32H7S3 / STM32H7Rx/7Sx devices.
+ * This header provides base addresses, register layout definitions,
+ * peripheral instances, clock-control helper macros, bit positions, and
+ * IRQ number definitions used by the bare-metal driver layer.
  *
- * This file contains:
- *  - Cortex-M7 core peripheral base addresses, such as NVIC
- *  - STM32H7Sxx memory and peripheral base addresses
- *  - C register maps for selected peripherals
- *  - Peripheral pointer definitions
- *  - Peripheral clock enable/disable helper macros
- *  - IRQ number definitions
+ * Target family : STM32H7Rx/7Sx
+ * Reference     : RM0477, DS14359, PM0253
  *
- * Notes:
- *  - All peripheral registers are declared volatile because their values can
- *    change outside the normal program flow by hardware.
- *  - Address and bit definitions are based on STM32H7Rx/7Sx RM0477.
- *
- * Created on: May 16, 2026
- * Author: talha
+ * @author  Talha
+ * @date    16-May-2026
  */
 
 #ifndef INC_STM32H7SXX_H_
@@ -25,112 +18,45 @@
 
 #include <stdint.h>
 
-/*
- * Access qualifier for memory-mapped peripheral registers.
- *
- * volatile tells the compiler not to optimize away reads/writes because
- * hardware can change these register values independently from the C code.
- */
+/* Register access qualifier for memory-mapped peripherals. */
 #define __vo volatile
 
-/* ========================================================================== */
-/*                         Cortex-M7 NVIC definitions                         */
-/* ========================================================================== */
+/* -------------------------------------------------------------------------- */
+/* Cortex-M7 NVIC definitions                                                 */
+/* -------------------------------------------------------------------------- */
 
-/*
- * NVIC register base addresses.
- *
- * ISER: Interrupt Set-Enable Registers
- *       Writing 1 to a bit enables the corresponding IRQ.
- *
- * ICER: Interrupt Clear-Enable Registers
- *       Writing 1 to a bit disables the corresponding IRQ.
- *
- * IPR : Interrupt Priority Registers
- *       Each IRQ has an 8-bit priority field. On STM32H7, only the upper
- *       implemented priority bits are used.
- */
+/* NVIC core peripheral register base addresses. */
 #define NVIC_ISER_BASEADDR              (0xE000E100UL)
 #define NVIC_ICER_BASEADDR              (0xE000E180UL)
 #define NVIC_IPR_BASEADDR               (0xE000E400UL)
 
-/*
- * ISER and ICER are accessed as 32-bit register arrays:
- *
- * NVIC_ISER[0] -> IRQ 0  - 31
- * NVIC_ISER[1] -> IRQ 32 - 63
- * NVIC_ISER[2] -> IRQ 64 - 95
- * ...			-> ...
- * NVIC_ISER[7] -> IRQ 223 - 255
- */
+/* NVIC interrupt enable registers are exposed as 32-bit register arrays. */
 #define NVIC_ISER                       ((__vo uint32_t*)NVIC_ISER_BASEADDR)
 #define NVIC_ICER                       ((__vo uint32_t*)NVIC_ICER_BASEADDR)
 
-/*
- * IPR is accessed byte-by-byte.
- *
- * Reason:
- * Each IRQ has one 8-bit priority field. Therefore NVIC_IPR[IRQNumber]
- * directly points to the priority byte of that IRQ.
- */
+/* NVIC interrupt priority registers are exposed as byte-addressable fields. */
 #define NVIC_IPR                        ((__vo uint8_t*)NVIC_IPR_BASEADDR)
 
-/*
- * Number of priority bits implemented by STM32H7 NVIC.
- *
- * Priority register fields are 8-bit wide, but only the upper implemented
- * bits are effective. With 4 implemented bits, valid logical priority values
- * are 0-15.
- *
- * Priority 0  -> highest priority
- * Priority 15 -> lowest priority
- */
+/* STM32H7 NVIC implements 4 priority bits: logical range 0..15. */
 #define NVIC_PRIO_BITS_IMPLEMENTED      4U
 #define NVIC_PRIORITY_SHIFT             (8U - NVIC_PRIO_BITS_IMPLEMENTED)
 #define NVIC_PRIORITY_MAX               ((1U << NVIC_PRIO_BITS_IMPLEMENTED) - 1U)
 
-/* ==========================================================================  */
-/*                         Generic bit manipulation macros                     */
-/* ==========================================================================  */
+/* -------------------------------------------------------------------------- */
+/* Generic bit manipulation macros                                            */
+/* -------------------------------------------------------------------------- */
 
-/*
- * These macros are used for simple register bit operations.
- *
- * SET_BIT    : Sets selected bits in REG.
- * CLEAR_BIT  : Clears selected bits in REG.
- * READ_BIT   : Reads selected masked bits from REG.
- * MODIFY_REG : Clears selected bits first, then writes VAL into the same field.
- *
- * Important:
- * MASK must already be shifted to the correct bit position.
- * VAL must also be shifted to the correct bit position before calling MODIFY_REG.
- */
+/* Generic register bit manipulation helpers. MASK and VAL must be pre-shifted. */
 #define SET_BIT(REG, MASK)              ((REG) |= (MASK))
 #define CLEAR_BIT(REG, MASK)            ((REG) &= ~(MASK))
 #define READ_BIT(REG, MASK)             ((REG) & (MASK))
 #define MODIFY_REG(REG, MASK, VAL)      ((REG) = (((REG) & ~(MASK)) | ((VAL) & (MASK))))
 
-/* ========================================================================== */
-/*                           Memory base addresses                            */
-/* ========================================================================== */
+/* -------------------------------------------------------------------------- */
+/* Memory base addresses                                                      */
+/* -------------------------------------------------------------------------- */
 
-/*
- * Main memory regions.
- *
- * FLASH_BASEADDR:
- *   User flash memory start address.
- *
- * DTCM_RAM_BASEADDR:
- *   Tightly Coupled Memory, directly connected to the CPU.
- *   Good for stack, frequently used variables, and time-critical data.
- *
- * AXI_SRAMx:
- *   SRAM connected through the AXI bus matrix.
- *   Usually better for DMA/peripheral shared buffers than DTCM.
- *
- * BACKUP SRAM:
- *   Retained in low-power modes when backup domain is supplied.
- */
+/* Device memory region base addresses. */
 
 #define FLASH_BASEADDR					(0x08000000UL)
 #define DTCM_RAM_BASEADDR				(0x20000000UL)
@@ -145,9 +71,9 @@
 
 #define SRAM 							DTCM_RAM_BASEADDR
 
-/*
- *============================AHBx and APBx Bus Peripheral Base Addresses========================
- */
+/* -------------------------------------------------------------------------- */
+/* AHB/APB bus peripheral base addresses                                      */
+/* -------------------------------------------------------------------------- */
 #define PERIPH_BASEADDR					(0x40000000UL)
 
 #define APB1_BASEADDR					PERIPH_BASEADDR
@@ -160,8 +86,9 @@
 #define APB4_BASEADDR					(0x58000000UL)
 #define AHB4_BASEADDR					(0x58020000UL)
 
-//============================APB1 Peripherals Base Addresses==================================
-
+/* -------------------------------------------------------------------------- */
+/* APB1 peripheral base addresses                                             */
+/* -------------------------------------------------------------------------- */
 #define TIM2_BASEADDR					((APB1_BASEADDR) + 0x0000UL)
 #define TIM3_BASEADDR					((APB1_BASEADDR) + 0x0400UL)
 #define TIM4_BASEADDR					((APB1_BASEADDR) + 0x0800UL)
@@ -172,9 +99,7 @@
 #define TIM13_BASEADDR					((APB1_BASEADDR) + 0x1C00UL)
 #define TIM14_BASEADDR					((APB1_BASEADDR) + 0x2000UL)
 #define LPTIM1_BASEADDR					((APB1_BASEADDR) + 0x2400UL)
-//Reserved								(0x40002800-0x40002BFF)
 #define WWDG_BASEADDR					((APB1_BASEADDR) + 0x2C00UL)
-//Reserved								(0x40003000-0x400037FF)
 #define SPI2S2_BASEADDR					((APB1_BASEADDR) + 0x3800UL)
 #define SPI2S3_BASEADDR					((APB1_BASEADDR) + 0x3C00UL)
 #define SPDIFRX1_BASEADDR				((APB1_BASEADDR) + 0x4000UL)
@@ -186,146 +111,107 @@
 #define I3C1_BASEADDR					((APB1_BASEADDR) + 0x5400UL)
 #define I2C2_BASEADDR					((APB1_BASEADDR) + 0x5800UL)
 #define I2C3_BASEADDR					((APB1_BASEADDR) + 0x5C00UL)
-//Reserved								(0x40006000-0x40006BFF)
 #define CEC_BASEADDR					((APB1_BASEADDR) + 0x6C00UL)
-//Reserved								(0x40007000-0x400077FF)
 #define UART7_BASEADDR					((APB1_BASEADDR) + 0x7800UL)
 #define UART8_BASEADDR					((APB1_BASEADDR) + 0x7C00UL)
-//Reserved								(0x40008000-0x400083FF)
 #define CRS_BASEADDR					((APB1_BASEADDR) + 0x8400UL)
-//Reserved								(0x40008800-0x400093FF)
 #define MDIOS_BASEADDR					((APB1_BASEADDR) + 0x9400UL)
-//Reserved								(0x40009800-0x40009FFF)
 #define FDCAN1_BASEADDR					((APB1_BASEADDR) + 0xA000UL)
 #define FDCAN2_BASEADDR					((APB1_BASEADDR) + 0xA400UL)
-//Reserved								(0x4000A800-0x4000ABFF)
 #define FDCAN_MSG_RAM_BASEADDR			((APB1_BASEADDR) + 0xAC00UL)
-//Reserved								(0x4000B400-0x4000EBFF)
 #define UCPD1_BASEADDR					((APB1_BASEADDR) + 0xEC00UL)
-//Reserved								(0x4000F000-0x4001FFFF)
 
+/* -------------------------------------------------------------------------- */
+/* AHB1 peripheral base addresses                                             */
+/* -------------------------------------------------------------------------- */
 
-//============================AHB1 Peripherals Base Addresses==================================
-
-//Reserved								(0x40020000-0x40020FFF)
 #define GPDMA1_BASEADDR					((AHB1_BASEADDR) + 0x1000UL)
 #define ADC1_ADC2_BASEADDR				((AHB1_BASEADDR) + 0x2000UL)
-//Reserved								(0x40022400-0x40027FFF)
 #define ETH1_BASEADDR					((AHB1_BASEADDR) + 0x8000UL)
-//Reserved								(0x40029400-0x4002EFFF)
 #define ADF1_BASEADDR					((AHB1_BASEADDR) + 0xF000UL)
-//Reserved								(0x40030000-0x4003FFFF)
 #define OTG_HS_BASEADDR					((AHB1_BASEADDR) + 0x20000UL)
 #define OTG_FS_BASEADDR					((AHB1_BASEADDR) + 0x60000UL)
-//Reserved								(0x400C0000-0x41FFFFFF)
 
-
-//============================APB2 Peripherals Base Addresses==================================
-
+/* -------------------------------------------------------------------------- */
+/* APB2 peripheral base addresses                                             */
+/* -------------------------------------------------------------------------- */
 #define TIM1_BASEADDR					((APB2_BASEADDR) + 0x0000UL)
-//Reserved								(0x42000400-0x42000FFF)
 #define USART1_BASEADDR					((APB2_BASEADDR) + 0x1000UL)
-//Reserved								(0x42001400-0x42002FFF)
 #define SPI2S1_BASEADDR					((APB2_BASEADDR) + 0x3000UL)
 #define SPI4_BASEADDR					((APB2_BASEADDR) + 0x3400UL)
-//Reserved								(0x42003800-0x42003FFF)
 #define TIM15_BASEADDR					((APB2_BASEADDR) + 0x4000UL)
 #define TIM16_BASEADDR					((APB2_BASEADDR) + 0x4400UL)
 #define TIM17_BASEADDR					((APB2_BASEADDR) + 0x4800UL)
 #define TIM9_BASEADDR					((APB2_BASEADDR) + 0x4C00UL)
 #define SPI5_BASEADDR					((APB2_BASEADDR) + 0x5000UL)
-//Reserved								(0x42005400-0x420057FF)
 #define SAI1_BASEADDR					((APB2_BASEADDR) + 0x5800UL)
 #define SAI2_BASEADDR					((APB2_BASEADDR) + 0x5C00UL)
-//Reserved								(0x42006000-0x47FFFFFF)
 
-
-//============================AHB2 Peripherals Base Addresses==================================
-
-//Reserved								(0x48000000-0x480003FF)
+/* -------------------------------------------------------------------------- */
+/* AHB2 peripheral base addresses                                             */
+/* -------------------------------------------------------------------------- */
 #define PSSI_BASEADDR					((AHB2_BASEADDR) + 0x0400UL)
-//Reserved								(0x48000800-0x480023FF)
 #define SDMMC2_BASEADDR					((AHB2_BASEADDR) + 0x2400UL)
 #define DLYB_SDMMC2_BASEADDR			((AHB2_BASEADDR) + 0x2800UL)
-//Reserved								(0x48002C00-0x480043FF)
 #define CORDIC_BASEADDR					((AHB2_BASEADDR) + 0x4400UL)
-//Reserved								(0x48004800-0x4801FFFF)
 
-
-//============================AHB3 Peripherals Base Addresses==================================
-
+/* -------------------------------------------------------------------------- */
+/* AHB3 peripheral base addresses                                             */
+/* -------------------------------------------------------------------------- */
 #define RNG_BASEADDR					((AHB3_BASEADDR) + 0x0000UL)
 #define HASH_BASEADDR					((AHB3_BASEADDR) + 0x0400UL)
 #define CRYP_BASEADDR					((AHB3_BASEADDR) + 0x0800UL)
-//Reserved								(0x48020C00-0x48020FFF)
 #define SAES_BASEADDR					((AHB3_BASEADDR) + 0x1000UL)
-//Reserved								(0x48021400-0x48021FFF)
 #define PKA_RAM_BASEADDR				((AHB3_BASEADDR) + 0x2000UL)
-//Reserved								(0x48024000-0x4803FFFF)
 
-
-//============================APB5 Peripherals Base Addresses==================================
-
-//Reserved								(0x50000000-0x50000FFF)
+/* -------------------------------------------------------------------------- */
+/* APB5 peripheral base addresses                                             */
+/* -------------------------------------------------------------------------- */
 #define LTDC_BASEADDR					((APB5_BASEADDR) + 0x1000UL)
-//Reserved								(0x50001400-0x50001FFF)
 #define DCMIPP_BASEADDR					((APB5_BASEADDR) + 0x2000UL)
-//Reserved								(0x50002400-0x50003FFF)
 #define GFXTIM_BASEADDR					((APB5_BASEADDR) + 0x4000UL)
-//Reserved								(0x50004400-0x51FFFFFF)
 
-
-//============================AHB5 Peripherals Base Addresses==================================
-
+/* -------------------------------------------------------------------------- */
+/* AHB5 peripheral base addresses                                             */
+/* -------------------------------------------------------------------------- */
 #define HPDMA1_BASEADDR					((AHB5_BASEADDR) + 0x0000UL)
 #define DMA2D_BASEADDR					((AHB5_BASEADDR) + 0x1000UL)
 #define FLASH_REG_BASEADDR				((AHB5_BASEADDR) + 0x2000UL)		// FLASH control-register block, not Flash memory
 #define JPEG_BASEADDR					((AHB5_BASEADDR) + 0x3000UL)
 #define FMC_BASEADDR					((AHB5_BASEADDR) + 0x4000UL)
 #define XSPI1_BASEADDR					((AHB5_BASEADDR) + 0x5000UL)
-//Reserved								(0x52006000-0x52006FFF)
 #define SDMMC1_BASEADDR					((AHB5_BASEADDR) + 0x7000UL)
 #define DLYB_SDMMC1_BASEADDR			((AHB5_BASEADDR) + 0x8000UL)
-//Reserved								(0x52008400-0x52008FFF)
 #define ECC_DIAG_D1_BASEADDR			((AHB5_BASEADDR) + 0x9000UL)
 #define XSPI2_BASEADDR					((AHB5_BASEADDR) + 0xA000UL)
-//Reserved								(0x5200B000-0x5200B3FF)
 #define XSPIM1_BASEADDR					((AHB5_BASEADDR) + 0xB400UL)
 #define MCE1_BASEADDR					((AHB5_BASEADDR) + 0xB800UL)
 #define MCE2_BASEADDR					((AHB5_BASEADDR) + 0xBC00UL)
 #define MCE3_BASEADDR					((AHB5_BASEADDR) + 0xC000UL)
-//Reserved								(0x5200C400-0x5200FFFF)
 #define GFXMMU_BASEADDR					((AHB5_BASEADDR) + 0x10000UL)
 #define GPU2D_BASEADDR					((AHB5_BASEADDR) + 0x14000UL)
 #define ICACHE_BASEADDR					((AHB5_BASEADDR) + 0x15000UL)
-//Reserved								(0x52015400-0x53FFFFFF)
 
-
-//============================APB4 Peripherals Base Addresses==================================
-
+/* -------------------------------------------------------------------------- */
+/* APB4 peripheral base addresses                                             */
+/* -------------------------------------------------------------------------- */
 #define EXTI_BASEADDR					((APB4_BASEADDR) + 0x0000UL)
 #define SBS_BASEADDR					((APB4_BASEADDR) + 0x0400UL)
-//Reserved								(0x58000800-0x58000BFF)
 #define LPUART1_BASEADDR				((APB4_BASEADDR) + 0x0C00UL)
-//Reserved								(0x58001000-0x580013FF)
 #define SPI2S6_BASEADDR					((APB4_BASEADDR) + 0x1400UL)
-//Reserved								(0x58001800-0x580023FF)
 #define LPTIM2_BASEADDR					((APB4_BASEADDR) + 0x2400UL)
 #define LPTIM3_BASEADDR					((APB4_BASEADDR) + 0x2800UL)
 #define LPTIM4_BASEADDR					((APB4_BASEADDR) + 0x2C00UL)
 #define LPTIM5_BASEADDR					((APB4_BASEADDR) + 0x3000UL)
-//Reserved								(0x58003400-0x58003BFF)
 #define VREFBUF_BASEADDR				((APB4_BASEADDR) + 0x3C00UL)
 #define RTC_BASEADDR					((APB4_BASEADDR) + 0x4000UL)
 #define TAMP_BASEADDR					((APB4_BASEADDR) + 0x4400UL)
 #define IWDG_BASEADDR					((APB4_BASEADDR) + 0x4800UL)
-//Reserved								(0x58004C00-0x580067FF)
 #define DTS_BASEADDR					((APB4_BASEADDR) + 0x6800UL)
-//Reserved								(0x58006C00-0x5801FFFF)
 
-
-//============================AHB4 Peripherals Base Addresses==================================
-
+/* -------------------------------------------------------------------------- */
+/* AHB4 peripheral base addresses                                             */
+/* -------------------------------------------------------------------------- */
 #define GPIOA_BASEADDR					((AHB4_BASEADDR) + 0x0000UL)
 #define GPIOB_BASEADDR					((AHB4_BASEADDR) + 0x0400UL)
 #define GPIOC_BASEADDR					((AHB4_BASEADDR) + 0x0800UL)
@@ -334,28 +220,23 @@
 #define GPIOF_BASEADDR					((AHB4_BASEADDR) + 0x1400UL)
 #define GPIOG_BASEADDR					((AHB4_BASEADDR) + 0x1800UL)
 #define GPIOH_BASEADDR					((AHB4_BASEADDR) + 0x1C00UL)
-//Reserved								(0x58022000-0x58022FFF)
 #define GPIOM_BASEADDR					((AHB4_BASEADDR) + 0x3000UL)
 #define GPION_BASEADDR					((AHB4_BASEADDR) + 0x3400UL)
 #define GPIOO_BASEADDR					((AHB4_BASEADDR) + 0x3800UL)
 #define GPIOP_BASEADDR					((AHB4_BASEADDR) + 0x3C00UL)
-//Reserved								(0x58024000-0x580243FF)
 #define RCC_BASEADDR					((AHB4_BASEADDR) + 0x4400UL)
 #define PWR_BASEADDR					((AHB4_BASEADDR) + 0x4800UL)
 #define CRC_BASEADDR					((AHB4_BASEADDR) + 0x4C00UL)
-//Reserved								(0x58025000-0x58026FFF)
 #define ECC_DIAG_D2_BASEADDR			((AHB4_BASEADDR) + 0x7000UL)
-//Reserved								(0x58028000-0x5BFFFFFF)
 
-/*
- *=============================================================================================
- *====================================REGISTER STRUCTURES======================================
- *=============================================================================================
- */
+/* -------------------------------------------------------------------------- */
+/* Peripheral register layout definitions                                     */
+/* -------------------------------------------------------------------------- */
 
-//===========================ADC CONFIGURATION===============================================
-
-//ADC Register Selection
+/* -------------------------------------------------------------------------- */
+/* ADC register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* ADC register map. */
 typedef struct{
 	__vo uint32_t ISR;			//0x000 ADC_ISR
 	__vo uint32_t IER;			//0x004 ADC_IER
@@ -391,9 +272,10 @@ typedef struct{
 	__vo uint32_t CDR;			//0x30C ADC_CDR
 } ADC_RegDef_t;
 
-//===========================ADF CONFIGURATION===============================================
-
-//ADF Register Selection
+/* -------------------------------------------------------------------------- */
+/* ADF register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* ADF register map. */
 typedef struct{
 	__vo uint32_t GCR;			//0x000 ADF_GCR
 	__vo uint32_t CKGCR;			//0x004 ADF_CKGCR
@@ -417,9 +299,10 @@ typedef struct{
 	__vo uint32_t DFLT0DR;			//0x0F0 ADF_DFLT0DR
 } ADF_RegDef_t;
 
-//===========================CEC CONFIGURATION===============================================
-
-//CEC Register Selection
+/* -------------------------------------------------------------------------- */
+/* CEC register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* CEC register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 CEC_CR
 	__vo uint32_t CFGR;			//0x004 CEC_CFGR
@@ -429,18 +312,20 @@ typedef struct{
 	__vo uint32_t IER;			//0x014 CEC_IER
 } CEC_RegDef_t;
 
-//===========================CORDIC CONFIGURATION===============================================
-
-//CORDIC Register Selection
+/* -------------------------------------------------------------------------- */
+/* CORDIC register layout                                                     */
+/* -------------------------------------------------------------------------- */
+/* CORDIC register map. */
 typedef struct{
 	__vo uint32_t CSR;			//0x000 CORDIC_CSR
 	__vo uint32_t WDATA;			//0x004 CORDIC_WDATA
 	__vo uint32_t RDATA;			//0x008 CORDIC_RDATA
 } CORDIC_RegDef_t;
 
-//===========================CRC CONFIGURATION===============================================
-
-//CRC Register Selection
+/* -------------------------------------------------------------------------- */
+/* CRC register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* CRC register map. */
 typedef struct{
 	__vo uint32_t DR;			//0x000 CRC_DR
 	__vo uint32_t IDR;			//0x004 CRC_IDR
@@ -450,9 +335,10 @@ typedef struct{
 	__vo uint32_t POL;			//0x014 CRC_POL
 } CRC_RegDef_t;
 
-//===========================CRS CONFIGURATION===============================================
-
-//CRS Register Selection
+/* -------------------------------------------------------------------------- */
+/* CRS register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* CRS register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 CRS_CR
 	__vo uint32_t CFGR;			//0x004 CRS_CFGR
@@ -460,9 +346,10 @@ typedef struct{
 	__vo uint32_t ICR;			//0x00C CRS_ICR
 } CRS_RegDef_t;
 
-//===========================CRYP CONFIGURATION===============================================
-
-//CRYP Register Selection
+/* -------------------------------------------------------------------------- */
+/* CRYP register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* CRYP register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 CRYP_CR
 	__vo uint32_t SR;			//0x004 CRYP_SR
@@ -486,9 +373,10 @@ typedef struct{
 	__vo uint32_t IV1RR;			//0x04C CRYP_IV1RR
 } CRYP_RegDef_t;
 
-//===========================DCMIPP CONFIGURATION===============================================
-
-//DCMIPP Register Selection
+/* -------------------------------------------------------------------------- */
+/* DCMIPP register layout                                                     */
+/* -------------------------------------------------------------------------- */
+/* DCMIPP register map. */
 typedef struct{
 	__vo uint32_t IPGR1;			//0x000 DCMIPP_IPGR1
 	__vo uint32_t IPGR2;			//0x004 DCMIPP_IPGR2
@@ -538,17 +426,19 @@ typedef struct{
 	__vo uint32_t P0CPPM0AR2;			//0x7C8 DCMIPP_P0CPPM0AR2
 } DCMIPP_RegDef_t;
 
-//===========================DLYB CONFIGURATION===============================================
-
-//DLYB Register Selection
+/* -------------------------------------------------------------------------- */
+/* DLYB register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* DLYB register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 DLYB_CR
 	__vo uint32_t CFGR;			//0x004 DLYB_CFGR
 } DLYB_RegDef_t;
 
-//===========================DMA2D CONFIGURATION===============================================
-
-//DMA2D Register Selection
+/* -------------------------------------------------------------------------- */
+/* DMA2D register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* DMA2D register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 DMA2D_CR
 	__vo uint32_t ISR;			//0x004 DMA2D_ISR
@@ -572,9 +462,10 @@ typedef struct{
 	__vo uint32_t AMTCR;			//0x04C DMA2D_AMTCR
 } DMA2D_RegDef_t;
 
-//===========================DTS CONFIGURATION===============================================
-
-//DTS Register Selection
+/* -------------------------------------------------------------------------- */
+/* DTS register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* DTS register map. */
 typedef struct{
 	__vo uint32_t CFGR1;			//0x000 DTS_CFGR1
 	uint32_t reserved_1;			//0x004 ---
@@ -590,177 +481,199 @@ typedef struct{
 	__vo uint32_t OR;			//0x02C DTS_OR
 } DTS_RegDef_t;
 
-//===========================ETH CONFIGURATION===============================================
-
-//ETH Register Selection
+/* -------------------------------------------------------------------------- */
+/* ETH register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* ETH register map. */
 typedef struct{
-	__vo uint32_t MACCR;			//0x000 ETH_MACCR
-	__vo uint32_t MACECR;			//0x004 ETH_MACECR
-	__vo uint32_t MACPFR;			//0x008 ETH_MACPFR
-	__vo uint32_t MACWTR;			//0x00C ETH_MACWTR
-	__vo uint32_t MACHT0R;			//0x010 ETH_MACHT0R
-	__vo uint32_t MACHT1R;			//0x014 ETH_MACHT1R
-	uint32_t reserved_1[14];		//0x018-0x04C ---
-	__vo uint32_t MACVTR;			//0x050 ETH_MACVTR
-	uint32_t reserved_2;			//0x054 ---
-	__vo uint32_t MACVHTR;			//0x058 ETH_MACVHTR
-	uint32_t reserved_3;			//0x05C ---
-	__vo uint32_t MACVIR;			//0x060 ETH_MACVIR
-	__vo uint32_t MACIVIR;			//0x064 ETH_MACIVIR
-	uint32_t reserved_4[2];		//0x068-0x06C ---
-	__vo uint32_t MACQTXFCR;			//0x070 ETH_MACQTXFCR
-	uint32_t reserved_5[7];		//0x074-0x08C ---
-	__vo uint32_t MACRXFCR;			//0x090 ETH_MACRXFCR
-	uint32_t reserved_6[7];		//0x094-0x0AC ---
-	__vo uint32_t MACISR;			//0x0B0 ETH_MACISR
-	__vo uint32_t MACIER;			//0x0B4 ETH_MACIER
-	__vo uint32_t MACRXTXSR;			//0x0B8 ETH_MACRXTXSR
-	uint32_t reserved_7;			//0x0BC ---
-	__vo uint32_t MACPCSR;			//0x0C0 ETH_MACPCSR
-	__vo uint32_t MACRWKPFR;			//0x0C4 ETH_MACRWKPFR
-	uint32_t reserved_8[2];		//0x0C8-0x0CC ---
-	__vo uint32_t MACLCSR;			//0x0D0 ETH_MACLCSR
-	__vo uint32_t MACLTCR;			//0x0D4 ETH_MACLTCR
-	__vo uint32_t MACLETR;			//0x0D8 ETH_MACLETR
-	__vo uint32_t MAC1USTCR;			//0x0DC ETH_MAC1USTCR
-	uint32_t reserved_9[12];		//0x0E0-0x10C ---
-	__vo uint32_t MACVR;			//0x110 ETH_MACVR
-	__vo uint32_t MACDR;			//0x114 ETH_MACDR
-	uint32_t reserved_10;			//0x118 ---
-	__vo uint32_t MACHWF0R;			//0x11C ETH_MACHWF0R
-	__vo uint32_t MACHWF1R;			//0x120 ETH_MACHWF1R
-	__vo uint32_t MACHWF2R;			//0x124 ETH_MACHWF2R
-	__vo uint32_t MACHWF3R;			//0x128 ETH_MACHWF3R
-	uint32_t reserved_11[53];		//0x12C-0x1FC ---
-	__vo uint32_t MACMDIOAR;			//0x200 ETH_MACMDIOAR
-	__vo uint32_t MACMDIODR;			//0x204 ETH_MACMDIODR
-	uint32_t reserved_12[2];		//0x208-0x20C ---
-	__vo uint32_t MACARPAR;			//0x210 ETH_MACARPAR
-	uint32_t reserved_13[7];		//0x214-0x22C ---
-	__vo uint32_t MACCSRSWCR;			//0x230 ETH_MACCSRSWCR
-	uint32_t reserved_14[51];		//0x234-0x2FC ---
-	__vo uint32_t MACA0HR;			//0x300 ETH_MACA0HR
-	uint32_t reserved_15[255];		//0x304-0x6FC ---
-	__vo uint32_t MMC_CONTROL;			//0x700 ETH_MMC_CONTROL
-	__vo uint32_t MMC_RX_INTERRUPT;			//0x704 ETH_MMC_RX_INTERRUPT
-	__vo uint32_t MMC_TX_INTERRUPT;			//0x708 ETH_MMC_TX_INTERRUPT
-	__vo uint32_t MMC_RX_INTERRUPT_MASK;			//0x70C ETH_MMC_RX_INTERRUPT_MASK
-	__vo uint32_t MMC_TX_INTERRUPT_MASK;			//0x710 ETH_MMC_TX_INTERRUPT_MASK
-	uint32_t reserved_16[14];		//0x714-0x748 ---
-	__vo uint32_t TX_SINGLE_COLLISION_GOOD_PACKETS;			//0x74C ETH_TX_SINGLE_COLLISION_GOOD_PACKETS
-	__vo uint32_t TX_MULTIPLE_COLLISION_GOOD_PACKETS;			//0x750 ETH_TX_MULTIPLE_COLLISION_GOOD_PACKETS
-	uint32_t reserved_17[5];		//0x754-0x764 ---
-	__vo uint32_t TX_PACKET_COUNT_GOOD;			//0x768 ETH_TX_PACKET_COUNT_GOOD
-	uint32_t reserved_18[10];		//0x76C-0x790 ---
-	__vo uint32_t RX_CRC_ERROR_PACKETS;			//0x794 ETH_RX_CRC_ERROR_PACKETS
-	__vo uint32_t RX_ALIGNMENT_ERROR_PACKETS;			//0x798 ETH_RX_ALIGNMENT_ERROR_PACKETS
-	uint32_t reserved_19[10];		//0x79C-0x7C0 ---
-	__vo uint32_t RX_UNICAST_PACKETS_GOOD;			//0x7C4 ETH_RX_UNICAST_PACKETS_GOOD
-	uint32_t reserved_20[9];		//0x7C8-0x7E8 ---
-	__vo uint32_t TX_LPI_USEC_CNTR;			//0x7EC ETH_TX_LPI_USEC_CNTR
-	__vo uint32_t TX_LPI_TRAN_CNTR;			//0x7F0 ETH_TX_LPI_TRAN_CNTR
-	__vo uint32_t RX_LPI_USEC_CNTR;			//0x7F4 ETH_RX_LPI_USEC_CNTR
-	__vo uint32_t RX_LPI_TRAN_CNTR;			//0x7F8 ETH_RX_LPI_TRAN_CNTR
-	uint32_t reserved_21[65];		//0x7FC-0x8FC ---
-	__vo uint32_t MACL3L4C0R;			//0x900 ETH_MACL3L4C0R
-	__vo uint32_t MACL4A0R;			//0x904 ETH_MACL4A0R
-	uint32_t reserved_22[2];		//0x908-0x90C ---
-	__vo uint32_t MACL3A00R;			//0x910 ETH_MACL3A00R
-	__vo uint32_t MACL3A10R;			//0x914 ETH_MACL3A10R
-	__vo uint32_t MACL3A20R;			//0x918 ETH_MACL3A20R
-	__vo uint32_t MACL3A30R;			//0x91C ETH_MACL3A30R
-	uint32_t reserved_23[4];		//0x920-0x92C ---
-	__vo uint32_t MACL3L4C1R;			//0x930 ETH_MACL3L4C1R
-	__vo uint32_t MACL4A1R;			//0x934 ETH_MACL4A1R
-	uint32_t reserved_24[2];		//0x938-0x93C ---
-	__vo uint32_t MACL3A01R;			//0x940 ETH_MACL3A01R
-	__vo uint32_t MACL3A11R;			//0x944 ETH_MACL3A11R
-	__vo uint32_t MACL3A21R;			//0x948 ETH_MACL3A21R
-	__vo uint32_t MACL3A31R;			//0x94C ETH_MACL3A31R
-	uint32_t reserved_25[108];		//0x950-0xAFC ---
-	__vo uint32_t MACTSCR;			//0xB00 ETH_MACTSCR
-	__vo uint32_t MACSSIR;			//0xB04 ETH_MACSSIR
-	__vo uint32_t MACSTSR;			//0xB08 ETH_MACSTSR
-	__vo uint32_t MACSTNR;			//0xB0C ETH_MACSTNR
-	__vo uint32_t MACSTSUR;			//0xB10 ETH_MACSTSUR
-	__vo uint32_t MACSTNUR;			//0xB14 ETH_MACSTNUR
-	__vo uint32_t MACTSAR;			//0xB18 ETH_MACTSAR
-	uint32_t reserved_26;			//0xB1C ---
-	__vo uint32_t MACTSSR;			//0xB20 ETH_MACTSSR
-	uint32_t reserved_27[3];		//0xB24-0xB2C ---
-	__vo uint32_t MACTXTSSNR;			//0xB30 ETH_MACTXTSSNR
-	__vo uint32_t MACTXTSSSR;			//0xB34 ETH_MACTXTSSSR
-	uint32_t reserved_28[2];		//0xB38-0xB3C ---
-	__vo uint32_t MACACR;			//0xB40 ETH_MACACR
-	uint32_t reserved_29;			//0xB44 ---
-	__vo uint32_t MACATSNR;			//0xB48 ETH_MACATSNR
-	__vo uint32_t MACATSSR;			//0xB4C ETH_MACATSSR
-	__vo uint32_t MACTSIACR;			//0xB50 ETH_MACTSIACR
-	__vo uint32_t MACTSEACR;			//0xB54 ETH_MACTSEACR
-	__vo uint32_t MACTSICNR;			//0xB58 ETH_MACTSICNR
-	__vo uint32_t MACTSECNR;			//0xB5C ETH_MACTSECNR
-	uint32_t reserved_30[4];		//0xB60-0xB6C ---
-	__vo uint32_t MACPPSCR;			//0xB70 ETH_MACPPSCR
-	uint32_t reserved_31[3];		//0xB74-0xB7C ---
-	__vo uint32_t MACPPSTTSR;			//0xB80 ETH_MACPPSTTSR
-	__vo uint32_t MACPPSTTNR;			//0xB84 ETH_MACPPSTTNR
-	__vo uint32_t MACPPSIR;			//0xB88 ETH_MACPPSIR
-	__vo uint32_t MACPPSWR;			//0xB8C ETH_MACPPSWR
-	uint32_t reserved_32[12];		//0xB90-0xBBC ---
-	__vo uint32_t MACPOCR;			//0xBC0 ETH_MACPOCR
-	__vo uint32_t MACSPI0R;			//0xBC4 ETH_MACSPI0R
-	__vo uint32_t MACSPI1R;			//0xBC8 ETH_MACSPI1R
-	__vo uint32_t MACSPI2R;			//0xBCC ETH_MACSPI2R
-	__vo uint32_t MACLMIR;			//0xBD0 ETH_MACLMIR
-	uint32_t reserved_33[11];		//0xBD4-0xBFC ---
-	__vo uint32_t MTLOMR;			//0xC00 ETH_MTLOMR
-	uint32_t reserved_34[7];		//0xC04-0xC1C ---
-	__vo uint32_t MTLISR;			//0xC20 ETH_MTLISR
-	uint32_t reserved_35[55];		//0xC24-0xCFC ---
-	__vo uint32_t MTLTXQOMR;			//0xD00 ETH_MTLTXQOMR
-	__vo uint32_t MTLTXQUR;			//0xD04 ETH_MTLTXQUR
-	__vo uint32_t MTLTXQDR;			//0xD08 ETH_MTLTXQDR
-	uint32_t reserved_36[8];		//0xD0C-0xD28 ---
-	__vo uint32_t MTLQICSR;			//0xD2C ETH_MTLQICSR
-	__vo uint32_t MTLRXQOMR;			//0xD30 ETH_MTLRXQOMR
-	__vo uint32_t MTLRXQMPOCR;			//0xD34 ETH_MTLRXQMPOCR
-	__vo uint32_t MTLRXQDR;			//0xD38 ETH_MTLRXQDR
-	uint32_t reserved_37[177];		//0xD3C-0xFFC ---
-	__vo uint32_t DMAMR;			//0x1000 ETH_DMAMR
-	__vo uint32_t DMASBMR;			//0x1004 ETH_DMASBMR
-	__vo uint32_t DMAISR;			//0x1008 ETH_DMAISR
-	__vo uint32_t DMADSR;			//0x100C ETH_DMADSR
-	uint32_t reserved_38[60];		//0x1010-0x10FC ---
-	__vo uint32_t DMACCR;			//0x1100 ETH_DMACCR
-	__vo uint32_t DMACTXCR;			//0x1104 ETH_DMACTXCR
-	__vo uint32_t DMACRXCR;			//0x1108 ETH_DMACRXCR
-	uint32_t reserved_39[2];		//0x110C-0x1110 ---
-	__vo uint32_t DMACTXDLAR;			//0x1114 ETH_DMACTXDLAR
-	uint32_t reserved_40;			//0x1118 ---
-	__vo uint32_t DMACRXDLAR;			//0x111C ETH_DMACRXDLAR
-	__vo uint32_t DMACTXDTPR;			//0x1120 ETH_DMACTXDTPR
-	uint32_t reserved_41;			//0x1124 ---
-	__vo uint32_t DMACRXDTPR;			//0x1128 ETH_DMACRXDTPR
-	__vo uint32_t DMACTXRLR;			//0x112C ETH_DMACTXRLR
-	__vo uint32_t DMACRXRLR;			//0x1130 ETH_DMACRXRLR
-	__vo uint32_t DMACIER;			//0x1134 ETH_DMACIER
-	__vo uint32_t DMACRXIWTR;			//0x1138 ETH_DMACRXIWTR
-	uint32_t reserved_42[2];		//0x113C-0x1140 ---
-	__vo uint32_t DMACCATXDR;			//0x1144 ETH_DMACCATXDR
-	uint32_t reserved_43;			//0x1148 ---
-	__vo uint32_t DMACCARXDR;			//0x114C ETH_DMACCARXDR
-	uint32_t reserved_44;			//0x1150 ---
-	__vo uint32_t DMACCATXBR;			//0x1154 ETH_DMACCATXBR
-	uint32_t reserved_45;			//0x1158 ---
-	__vo uint32_t DMACCARXBR;			//0x115C ETH_DMACCARXBR
-	__vo uint32_t DMACSR;			//0x1160 ETH_DMACSR
-	uint32_t reserved_46[2];		//0x1164-0x1168 ---
-	__vo uint32_t DMACMFCR;			//0x116C ETH_DMACMFCR
+	__vo uint32_t MACCR;                 //0x000 ETH_MACCR
+	__vo uint32_t MACECR;                //0x004 ETH_MACECR
+	__vo uint32_t MACPFR;                //0x008 ETH_MACPFR
+	__vo uint32_t MACWTR;                //0x00C ETH_MACWTR
+	__vo uint32_t MACHT0R;               //0x010 ETH_MACHT0R
+	__vo uint32_t MACHT1R;               //0x014 ETH_MACHT1R
+	uint32_t reserved_1[14];             //0x018-0x04C
+	__vo uint32_t MACVTR;                //0x050 ETH_MACVTR
+	uint32_t reserved_2;                 //0x054
+	__vo uint32_t MACVHTR;               //0x058 ETH_MACVHTR
+	uint32_t reserved_3;                 //0x05C
+	__vo uint32_t MACVIR;                //0x060 ETH_MACVIR
+	__vo uint32_t MACIVIR;               //0x064 ETH_MACIVIR
+	uint32_t reserved_4[2];              //0x068-0x06C
+	__vo uint32_t MACQTXFCR;             //0x070 ETH_MACQTXFCR
+	uint32_t reserved_5[7];              //0x074-0x08C
+	__vo uint32_t MACRXFCR;              //0x090 ETH_MACRXFCR
+	uint32_t reserved_6[7];              //0x094-0x0AC
+	__vo uint32_t MACISR;                //0x0B0 ETH_MACISR
+	__vo uint32_t MACIER;                //0x0B4 ETH_MACIER
+	__vo uint32_t MACRXTXSR;             //0x0B8 ETH_MACRXTXSR
+	uint32_t reserved_7;                 //0x0BC
+	__vo uint32_t MACPCSR;               //0x0C0 ETH_MACPCSR
+	__vo uint32_t MACRWKPFR;             //0x0C4 ETH_MACRWKPFR
+	uint32_t reserved_8[2];              //0x0C8-0x0CC
+	__vo uint32_t MACLCSR;               //0x0D0 ETH_MACLCSR
+	__vo uint32_t MACLTCR;               //0x0D4 ETH_MACLTCR
+	__vo uint32_t MACLETR;               //0x0D8 ETH_MACLETR
+	__vo uint32_t MAC1USTCR;             //0x0DC ETH_MAC1USTCR
+	uint32_t reserved_9[12];             //0x0E0-0x10C
+	__vo uint32_t MACVR;                 //0x110 ETH_MACVR
+	__vo uint32_t MACDR;                 //0x114 ETH_MACDR
+	uint32_t reserved_10;                //0x118
+	__vo uint32_t MACHWF0R;              //0x11C ETH_MACHWF0R
+	__vo uint32_t MACHWF1R;              //0x120 ETH_MACHWF1R
+	__vo uint32_t MACHWF2R;              //0x124 ETH_MACHWF2R
+	__vo uint32_t MACHWF3R;              //0x128 ETH_MACHWF3R
+	uint32_t reserved_11[53];            //0x12C-0x1FC
+	__vo uint32_t MACMDIOAR;             //0x200 ETH_MACMDIOAR
+	__vo uint32_t MACMDIODR;             //0x204 ETH_MACMDIODR
+	uint32_t reserved_12[2];             //0x208-0x20C
+	__vo uint32_t MACARPAR;              //0x210 ETH_MACARPAR
+	uint32_t reserved_13[7];             //0x214-0x22C
+	__vo uint32_t MACCSRSWCR;            //0x230 ETH_MACCSRSWCR
+	uint32_t reserved_14[51];            //0x234-0x2FC
+
+	/*
+	 * MAC address registers
+	 * MACA0 holds the primary MAC address.
+	 * MACA1..MACA3 are additional address filters.
+	 */
+	__vo uint32_t MACA0HR;               //0x300 ETH_MACA0HR
+	__vo uint32_t MACA0LR;               //0x304 ETH_MACA0LR
+	__vo uint32_t MACA1HR;               //0x308 ETH_MACA1HR
+	__vo uint32_t MACA1LR;               //0x30C ETH_MACA1LR
+	__vo uint32_t MACA2HR;               //0x310 ETH_MACA2HR
+	__vo uint32_t MACA2LR;               //0x314 ETH_MACA2LR
+	__vo uint32_t MACA3HR;               //0x318 ETH_MACA3HR
+	__vo uint32_t MACA3LR;               //0x31C ETH_MACA3LR
+
+	uint32_t reserved_15[248];           //0x320-0x6FC
+
+	__vo uint32_t MMC_CONTROL;           //0x700 ETH_MMC_CONTROL
+	__vo uint32_t MMC_RX_INTERRUPT;      //0x704 ETH_MMC_RX_INTERRUPT
+	__vo uint32_t MMC_TX_INTERRUPT;      //0x708 ETH_MMC_TX_INTERRUPT
+	__vo uint32_t MMC_RX_INTERRUPT_MASK; //0x70C ETH_MMC_RX_INTERRUPT_MASK
+	__vo uint32_t MMC_TX_INTERRUPT_MASK; //0x710 ETH_MMC_TX_INTERRUPT_MASK
+	uint32_t reserved_16[14];            //0x714-0x748
+	__vo uint32_t TX_SINGLE_COLLISION_GOOD_PACKETS;    //0x74C
+	__vo uint32_t TX_MULTIPLE_COLLISION_GOOD_PACKETS;  //0x750
+	uint32_t reserved_17[5];             //0x754-0x764
+	__vo uint32_t TX_PACKET_COUNT_GOOD;  //0x768
+	uint32_t reserved_18[10];            //0x76C-0x790
+	__vo uint32_t RX_CRC_ERROR_PACKETS;  //0x794
+	__vo uint32_t RX_ALIGNMENT_ERROR_PACKETS; //0x798
+	uint32_t reserved_19[10];            //0x79C-0x7C0
+	__vo uint32_t RX_UNICAST_PACKETS_GOOD; //0x7C4
+	uint32_t reserved_20[9];             //0x7C8-0x7E8
+	__vo uint32_t TX_LPI_USEC_CNTR;      //0x7EC
+	__vo uint32_t TX_LPI_TRAN_CNTR;      //0x7F0
+	__vo uint32_t RX_LPI_USEC_CNTR;      //0x7F4
+	__vo uint32_t RX_LPI_TRAN_CNTR;      //0x7F8
+	uint32_t reserved_21[65];            //0x7FC-0x8FC
+
+	__vo uint32_t MACL3L4C0R;            //0x900 ETH_MACL3L4C0R
+	__vo uint32_t MACL4A0R;              //0x904 ETH_MACL4A0R
+	uint32_t reserved_22[2];             //0x908-0x90C
+	__vo uint32_t MACL3A00R;             //0x910 ETH_MACL3A00R
+	__vo uint32_t MACL3A10R;             //0x914 ETH_MACL3A10R
+	__vo uint32_t MACL3A20R;             //0x918 ETH_MACL3A20R
+	__vo uint32_t MACL3A30R;             //0x91C ETH_MACL3A30R
+	uint32_t reserved_23[4];             //0x920-0x92C
+	__vo uint32_t MACL3L4C1R;            //0x930 ETH_MACL3L4C1R
+	__vo uint32_t MACL4A1R;              //0x934 ETH_MACL4A1R
+	uint32_t reserved_24[2];             //0x938-0x93C
+	__vo uint32_t MACL3A01R;             //0x940 ETH_MACL3A01R
+	__vo uint32_t MACL3A11R;             //0x944 ETH_MACL3A11R
+	__vo uint32_t MACL3A21R;             //0x948 ETH_MACL3A21R
+	__vo uint32_t MACL3A31R;             //0x94C ETH_MACL3A31R
+	uint32_t reserved_25[108];           //0x950-0xAFC
+
+	__vo uint32_t MACTSCR;               //0xB00 ETH_MACTSCR
+	__vo uint32_t MACSSIR;               //0xB04 ETH_MACSSIR
+	__vo uint32_t MACSTSR;               //0xB08 ETH_MACSTSR
+	__vo uint32_t MACSTNR;               //0xB0C ETH_MACSTNR
+	__vo uint32_t MACSTSUR;              //0xB10 ETH_MACSTSUR
+	__vo uint32_t MACSTNUR;              //0xB14 ETH_MACSTNUR
+	__vo uint32_t MACTSAR;               //0xB18 ETH_MACTSAR
+	uint32_t reserved_26;                //0xB1C
+	__vo uint32_t MACTSSR;               //0xB20 ETH_MACTSSR
+	uint32_t reserved_27[3];             //0xB24-0xB2C
+	__vo uint32_t MACTXTSSNR;            //0xB30 ETH_MACTXTSSNR
+	__vo uint32_t MACTXTSSSR;            //0xB34 ETH_MACTXTSSSR
+	uint32_t reserved_28[2];             //0xB38-0xB3C
+	__vo uint32_t MACACR;                //0xB40 ETH_MACACR
+	uint32_t reserved_29;                //0xB44
+	__vo uint32_t MACATSNR;              //0xB48 ETH_MACATSNR
+	__vo uint32_t MACATSSR;              //0xB4C ETH_MACATSSR
+	__vo uint32_t MACTSIACR;             //0xB50 ETH_MACTSIACR
+	__vo uint32_t MACTSEACR;             //0xB54 ETH_MACTSEACR
+	__vo uint32_t MACTSICNR;             //0xB58 ETH_MACTSICNR
+	__vo uint32_t MACTSECNR;             //0xB5C ETH_MACTSECNR
+	uint32_t reserved_30[4];             //0xB60-0xB6C
+	__vo uint32_t MACPPSCR;              //0xB70 ETH_MACPPSCR
+	uint32_t reserved_31[3];             //0xB74-0xB7C
+	__vo uint32_t MACPPSTTSR;            //0xB80 ETH_MACPPSTTSR
+	__vo uint32_t MACPPSTTNR;            //0xB84 ETH_MACPPSTTNR
+	__vo uint32_t MACPPSIR;              //0xB88 ETH_MACPPSIR
+	__vo uint32_t MACPPSWR;              //0xB8C ETH_MACPPSWR
+	uint32_t reserved_32[12];            //0xB90-0xBBC
+	__vo uint32_t MACPOCR;               //0xBC0 ETH_MACPOCR
+	__vo uint32_t MACSPI0R;              //0xBC4 ETH_MACSPI0R
+	__vo uint32_t MACSPI1R;              //0xBC8 ETH_MACSPI1R
+	__vo uint32_t MACSPI2R;              //0xBCC ETH_MACSPI2R
+	__vo uint32_t MACLMIR;               //0xBD0 ETH_MACLMIR
+	uint32_t reserved_33[11];            //0xBD4-0xBFC
+
+	__vo uint32_t MTLOMR;                //0xC00 ETH_MTLOMR
+	uint32_t reserved_34[7];             //0xC04-0xC1C
+	__vo uint32_t MTLISR;                //0xC20 ETH_MTLISR
+	uint32_t reserved_35[55];            //0xC24-0xCFC
+	__vo uint32_t MTLTXQOMR;             //0xD00 ETH_MTLTXQOMR
+	__vo uint32_t MTLTXQUR;              //0xD04 ETH_MTLTXQUR
+	__vo uint32_t MTLTXQDR;              //0xD08 ETH_MTLTXQDR
+	uint32_t reserved_36[8];             //0xD0C-0xD28
+	__vo uint32_t MTLQICSR;              //0xD2C ETH_MTLQICSR
+	__vo uint32_t MTLRXQOMR;             //0xD30 ETH_MTLRXQOMR
+	__vo uint32_t MTLRXQMPOCR;           //0xD34 ETH_MTLRXQMPOCR
+	__vo uint32_t MTLRXQDR;              //0xD38 ETH_MTLRXQDR
+	uint32_t reserved_37[177];           //0xD3C-0xFFC
+
+	__vo uint32_t DMAMR;                 //0x1000 ETH_DMAMR
+	__vo uint32_t DMASBMR;               //0x1004 ETH_DMASBMR
+	__vo uint32_t DMAISR;                //0x1008 ETH_DMAISR
+	__vo uint32_t DMADSR;                //0x100C ETH_DMADSR
+	uint32_t reserved_38[60];            //0x1010-0x10FC
+
+	__vo uint32_t DMACCR;                //0x1100 ETH_DMACCR
+	__vo uint32_t DMACTXCR;              //0x1104 ETH_DMACTXCR
+	__vo uint32_t DMACRXCR;              //0x1108 ETH_DMACRXCR
+	uint32_t reserved_39[2];             //0x110C-0x1110
+	__vo uint32_t DMACTXDLAR;            //0x1114 ETH_DMACTXDLAR
+	uint32_t reserved_40;                //0x1118
+	__vo uint32_t DMACRXDLAR;            //0x111C ETH_DMACRXDLAR
+	__vo uint32_t DMACTXDTPR;            //0x1120 ETH_DMACTXDTPR
+	uint32_t reserved_41;                //0x1124
+	__vo uint32_t DMACRXDTPR;            //0x1128 ETH_DMACRXDTPR
+	__vo uint32_t DMACTXRLR;             //0x112C ETH_DMACTXRLR
+	__vo uint32_t DMACRXRLR;             //0x1130 ETH_DMACRXRLR
+	__vo uint32_t DMACIER;               //0x1134 ETH_DMACIER
+	__vo uint32_t DMACRXIWTR;            //0x1138 ETH_DMACRXIWTR
+	uint32_t reserved_42[2];             //0x113C-0x1140
+	__vo uint32_t DMACCATXDR;            //0x1144 ETH_DMACCATXDR
+	uint32_t reserved_43;                //0x1148
+	__vo uint32_t DMACCARXDR;            //0x114C ETH_DMACCARXDR
+	uint32_t reserved_44;                //0x1150
+	__vo uint32_t DMACCATXBR;            //0x1154 ETH_DMACCATXBR
+	uint32_t reserved_45;                //0x1158
+	__vo uint32_t DMACCARXBR;            //0x115C ETH_DMACCARXBR
+	__vo uint32_t DMACSR;                //0x1160 ETH_DMACSR
+	uint32_t reserved_46[2];             //0x1164-0x1168
+	__vo uint32_t DMACMFCR;              //0x116C ETH_DMACMFCR
 } ETH_RegDef_t;
 
-//===========================EXTI CONFIGURATION===============================================
-
-//EXTI Register Selection
+/* -------------------------------------------------------------------------- */
+/* EXTI register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* EXTI register map. */
 typedef struct{
 	__vo uint32_t RTSR1;			//0x000 EXTI_RTSR1
 	__vo uint32_t FTSR1;			//0x004 EXTI_FTSR1
@@ -782,9 +695,10 @@ typedef struct{
 	__vo uint32_t EMR3;			//0x0A4 EXTI_EMR3
 } EXTI_RegDef_t;
 
-//===========================FDCAN CONFIGURATION===============================================
-
-//FDCAN Register Selection
+/* -------------------------------------------------------------------------- */
+/* FDCAN register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* FDCAN register map. */
 typedef struct{
 	__vo uint32_t CREL;			//0x000 FDCAN_CREL
 	__vo uint32_t ENDN;			//0x004 FDCAN_ENDN
@@ -832,9 +746,10 @@ typedef struct{
 	__vo uint32_t CKDIV;			//0x100 FDCAN_CKDIV
 } FDCAN_RegDef_t;
 
-//===========================FLASH CONFIGURATION===============================================
-
-//FLASH Register Selection
+/* -------------------------------------------------------------------------- */
+/* FLASH register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* FLASH register map. */
 typedef struct{
 	__vo uint32_t ACR;			//0x000 FLASH_ACR
 	__vo uint32_t KEYR;			//0x004 FLASH_KEYR
@@ -880,9 +795,10 @@ typedef struct{
 	__vo uint32_t OBW2SRP;			//0x26C FLASH_OBW2SRP
 } FLASH_RegDef_t;
 
-//===========================FMC CONFIGURATION===============================================
-
-//FMC Register Selection
+/* -------------------------------------------------------------------------- */
+/* FMC register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* FMC register map. */
 typedef struct{
 	uint32_t reserved_1[33];		//0x000-0x080 ---
 	__vo uint32_t SR;			//0x084 FMC_SR
@@ -896,9 +812,10 @@ typedef struct{
 	__vo uint32_t SDSR;			//0x158 FMC_SDSR
 } FMC_RegDef_t;
 
-//===========================GFXMMU CONFIGURATION===============================================
-
-//GFXMMU Register Selection
+/* -------------------------------------------------------------------------- */
+/* GFXMMU register layout                                                     */
+/* -------------------------------------------------------------------------- */
+/* GFXMMU register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 GFXMMU_CR
 	__vo uint32_t SR;			//0x004 GFXMMU_SR
@@ -908,9 +825,10 @@ typedef struct{
 	__vo uint32_t DAR;			//0x014 GFXMMU_DAR
 } GFXMMU_RegDef_t;
 
-//===========================GFXTIM CONFIGURATION===============================================
-
-//GFXTIM Register Selection
+/* -------------------------------------------------------------------------- */
+/* GFXTIM register layout                                                     */
+/* -------------------------------------------------------------------------- */
+/* GFXTIM register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 GFXTIM_CR
 	__vo uint32_t CGCR;			//0x004 GFXTIM_CGCR
@@ -947,9 +865,10 @@ typedef struct{
 	__vo uint32_t WDGPAR;			//0x0A8 GFXTIM_WDGPAR
 } GFXTIM_RegDef_t;
 
-//===========================GPDMA CONFIGURATION===============================================
-
-//GPDMA Register Selection
+/* -------------------------------------------------------------------------- */
+/* GPDMA register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* GPDMA register map. */
 typedef struct{
 	uint32_t reserved_1;			//0x000 ---
 	__vo uint32_t PRIVCFGR;			//0x004 GPDMA_PRIVCFGR
@@ -957,9 +876,10 @@ typedef struct{
 	__vo uint32_t MISR;			//0x00C GPDMA_MISR
 } GPDMA_RegDef_t;
 
-//=======================GPIO CONFIGURATION====================================
-
-//GPIO Register Selection
+/* -------------------------------------------------------------------------- */
+/* GPIO register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* GPIO register map. */
 typedef struct{
 	__vo uint32_t MODER;            //0x00 GPIO mode register
 	__vo uint32_t OTYPER;           //0x04 GPIO output type register
@@ -974,9 +894,10 @@ typedef struct{
 	__vo uint32_t BRR;              //0x28 GPIO bit reset register
 } GPIO_RegDef_t;
 
-//===========================HASH CONFIGURATION===============================================
-
-//HASH Register Selection
+/* -------------------------------------------------------------------------- */
+/* HASH register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* HASH register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 HASH_CR
 	__vo uint32_t DIN;			//0x004 HASH_DIN
@@ -986,9 +907,10 @@ typedef struct{
 	__vo uint32_t SR;			//0x024 HASH_SR
 } HASH_RegDef_t;
 
-//===========================HPDMA CONFIGURATION===============================================
-
-//HPDMA Register Selection
+/* -------------------------------------------------------------------------- */
+/* HPDMA register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* HPDMA register map. */
 typedef struct{
 	uint32_t reserved_1;			//0x000 ---
 	__vo uint32_t PRIVCFGR;			//0x004 HPDMA_PRIVCFGR
@@ -996,9 +918,10 @@ typedef struct{
 	__vo uint32_t MISR;			//0x00C HPDMA_MISR
 } HPDMA_RegDef_t;
 
-//===========================I2C CONFIGURATION===============================================
-
-//I2C Register Selection
+/* -------------------------------------------------------------------------- */
+/* I2C register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* I2C register map. */
 typedef struct{
 	__vo uint32_t CR1;			//0x000 I2C_CR1
 	__vo uint32_t CR2;			//0x004 I2C_CR2
@@ -1013,9 +936,10 @@ typedef struct{
 	__vo uint32_t TXDR;			//0x028 I2C_TXDR
 } I2C_RegDef_t;
 
-//===========================I3C CONFIGURATION===============================================
-
-//I3C Register Selection
+/* -------------------------------------------------------------------------- */
+/* I3C register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* I3C register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 I3C_CR
 	__vo uint32_t CFGR;			//0x004 I3C_CFGR
@@ -1053,9 +977,10 @@ typedef struct{
 	__vo uint32_t EPIDR;			//0x0D4 I3C_EPIDR
 } I3C_RegDef_t;
 
-//===========================ICACHE CONFIGURATION===============================================
-
-//ICACHE Register Selection
+/* -------------------------------------------------------------------------- */
+/* ICACHE register layout                                                     */
+/* -------------------------------------------------------------------------- */
+/* ICACHE register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 ICACHE_CR
 	__vo uint32_t SR;			//0x004 ICACHE_SR
@@ -1065,9 +990,10 @@ typedef struct{
 	__vo uint32_t MMONR;			//0x014 ICACHE_MMONR
 } ICACHE_RegDef_t;
 
-//===========================IWDG CONFIGURATION===============================================
-
-//IWDG Register Selection
+/* -------------------------------------------------------------------------- */
+/* IWDG register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* IWDG register map. */
 typedef struct{
 	__vo uint32_t KR;			//0x000 IWDG_KR
 	__vo uint32_t PR;			//0x004 IWDG_PR
@@ -1077,9 +1003,10 @@ typedef struct{
 	__vo uint32_t EWCR;			//0x014 IWDG_EWCR
 } IWDG_RegDef_t;
 
-//===========================JPEG CONFIGURATION===============================================
-
-//JPEG Register Selection
+/* -------------------------------------------------------------------------- */
+/* JPEG register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* JPEG register map. */
 typedef struct{
 	__vo uint32_t CONFR0;			//0x000 JPEG_CONFR0
 	__vo uint32_t CONFR1;			//0x004 JPEG_CONFR1
@@ -1094,9 +1021,10 @@ typedef struct{
 	__vo uint32_t DOR;			//0x044 JPEG_DOR
 } JPEG_RegDef_t;
 
-//===========================LPTIM CONFIGURATION===============================================
-
-//LPTIM Register Selection
+/* -------------------------------------------------------------------------- */
+/* LPTIM register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* LPTIM register map. */
 typedef struct{
 	__vo uint32_t ISR;			//0x000 LPTIMx_ISR
 	__vo uint32_t ICR;			//0x004 LPTIMx_ICR
@@ -1114,9 +1042,10 @@ typedef struct{
 	__vo uint32_t CCR2;			//0x034 LPTIM_CCR2
 } LPTIM_RegDef_t;
 
-//===========================LPUART CONFIGURATION===============================================
-
-//LPUART Register Selection
+/* -------------------------------------------------------------------------- */
+/* LPUART register layout                                                     */
+/* -------------------------------------------------------------------------- */
+/* LPUART register map. */
 typedef struct{
 	__vo uint32_t CR1;			//0x000 LPUART_CR1
 	__vo uint32_t CR2;			//0x004 LPUART_CR2
@@ -1131,9 +1060,10 @@ typedef struct{
 	__vo uint32_t PRESC;			//0x02C LPUART_PRESC
 } LPUART_RegDef_t;
 
-//===========================LTDC CONFIGURATION===============================================
-
-//LTDC Register Selection
+/* -------------------------------------------------------------------------- */
+/* LTDC register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* LTDC register map. */
 typedef struct{
 	uint32_t reserved_1[2];		//0x000-0x004 ---
 	__vo uint32_t SSCR;			//0x008 LTDC_SSCR
@@ -1154,9 +1084,10 @@ typedef struct{
 	__vo uint32_t CDSR;			//0x048 LTDC_CDSR
 } LTDC_RegDef_t;
 
-//===========================MCE CONFIGURATION===============================================
-
-//MCE Register Selection
+/* -------------------------------------------------------------------------- */
+/* MCE register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* MCE register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 MCE_CR
 	__vo uint32_t SR;			//0x004 MCE_SR
@@ -1169,9 +1100,10 @@ typedef struct{
 	__vo uint32_t IADDR;			//0x024 MCE_IADDR
 } MCE_RegDef_t;
 
-//===========================MDIOS CONFIGURATION===============================================
-
-//MDIOS Register Selection
+/* -------------------------------------------------------------------------- */
+/* MDIOS register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* MDIOS register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 MDIOS_CR
 	__vo uint32_t WRFR;			//0x004 MDIOS_WRFR
@@ -1182,9 +1114,10 @@ typedef struct{
 	__vo uint32_t CLRFR;			//0x018 MDIOS_CLRFR
 } MDIOS_RegDef_t;
 
-//===========================OTG CONFIGURATION===============================================
-
-//OTG Register Selection
+/* -------------------------------------------------------------------------- */
+/* OTG register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* OTG register map. */
 typedef struct{
 	__vo uint32_t GOTGCTL;			//0x000 OTG_GOTGCTL
 	__vo uint32_t GOTGINT;			//0x004 OTG_GOTGINT
@@ -1246,18 +1179,20 @@ typedef struct{
 	__vo uint32_t PCGCCTL1;			//0xE04 OTG_PCGCCTL1
 } OTG_RegDef_t;
 
-//===========================PKA CONFIGURATION===============================================
-
-//PKA Register Selection
+/* -------------------------------------------------------------------------- */
+/* PKA register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* PKA register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 PKA_CR
 	__vo uint32_t SR;			//0x004 PKA_SR
 	__vo uint32_t CLRFR;			//0x008 PKA_CLRFR
 } PKA_RegDef_t;
 
-//===========================PSSI CONFIGURATION===============================================
-
-//PSSI Register Selection
+/* -------------------------------------------------------------------------- */
+/* PSSI register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* PSSI register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 PSSI_CR
 	__vo uint32_t SR;			//0x004 PSSI_SR
@@ -1269,9 +1204,10 @@ typedef struct{
 	__vo uint32_t DR;			//0x028 PSSI_DR
 } PSSI_RegDef_t;
 
-//===========================PWR CONFIGURATION===============================================
-
-//PWR Register Selection
+/* -------------------------------------------------------------------------- */
+/* PWR register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* PWR register map. */
 typedef struct{
 	__vo uint32_t CR1;			//0x000 PWR_CR1
 	__vo uint32_t SR1;			//0x004 PWR_SR1
@@ -1292,18 +1228,20 @@ typedef struct{
 	__vo uint32_t PDCRP;			//0x044 PWR_PDCRP
 } PWR_RegDef_t;
 
-//===========================RAMECC CONFIGURATION===============================================
-
-//RAMECC Register Selection
+/* -------------------------------------------------------------------------- */
+/* RAMECC register layout                                                     */
+/* -------------------------------------------------------------------------- */
+/* RAMECC register map. */
 typedef struct{
 	__vo uint32_t IER;			//0x000 RAMECC_IER
 	uint32_t reserved_1[31];		//0x004-0x07C ---
 	__vo uint32_t ECC;			//0x080 ECC
 } RAMECC_RegDef_t;
 
-//=============================RCC CONFIGURATION===============================================
-
-//RCC Register Selection
+/* -------------------------------------------------------------------------- */
+/* RCC register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* RCC register map. */
 typedef struct{
 	__vo uint32_t CR;          		//0x000 Source Control Register
 	__vo uint32_t HSICFGR;     		//0x004 HSI Calibration Register
@@ -1384,9 +1322,10 @@ typedef struct{
 	__vo uint32_t TESTCR;      		//0x200 Test Control Register
 } RCC_RegDef_t;
 
-//===========================RNG CONFIGURATION===============================================
-
-//RNG Register Selection
+/* -------------------------------------------------------------------------- */
+/* RNG register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* RNG register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 RNG_CR
 	__vo uint32_t SR;			//0x004 RNG_SR
@@ -1395,9 +1334,10 @@ typedef struct{
 	__vo uint32_t HTCR;			//0x010 RNG_HTCR
 } RNG_RegDef_t;
 
-//===========================RTC CONFIGURATION===============================================
-
-//RTC Register Selection
+/* -------------------------------------------------------------------------- */
+/* RTC register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* RTC register map. */
 typedef struct{
 	__vo uint32_t TR;			//0x000 RTC_TR
 	__vo uint32_t DR;			//0x004 RTC_DR
@@ -1428,9 +1368,10 @@ typedef struct{
 	__vo uint32_t ALRBBINR;			//0x074 RTC_ALRBBINR
 } RTC_RegDef_t;
 
-//===========================SAES CONFIGURATION===============================================
-
-//SAES Register Selection
+/* -------------------------------------------------------------------------- */
+/* SAES register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* SAES register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 SAES_CR
 	__vo uint32_t SR;			//0x004 SAES_SR
@@ -1454,9 +1395,10 @@ typedef struct{
 	__vo uint32_t ICR;			//0x308 SAES_ICR
 } SAES_RegDef_t;
 
-//===========================SAI CONFIGURATION===============================================
-
-//SAI Register Selection
+/* -------------------------------------------------------------------------- */
+/* SAI register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* SAI register map. */
 typedef struct{
 	__vo uint32_t GCR;			//0x000 SAI_GCR
 	__vo uint32_t ACR1;			//0x004 SAI_ACR1
@@ -1479,9 +1421,10 @@ typedef struct{
 	__vo uint32_t PDMDLY;			//0x048 SAI_PDMDLY
 } SAI_RegDef_t;
 
-//===========================SBS CONFIGURATION===============================================
-
-//SBS Register Selection
+/* -------------------------------------------------------------------------- */
+/* SBS register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* SBS register map. */
 typedef struct{
 	__vo uint32_t BOOTSR;			//0x000 SBS_BOOTSR
 	uint32_t reserved_1[3];		//0x004-0x00C ---
@@ -1506,9 +1449,10 @@ typedef struct{
 	__vo uint32_t EXTICR[4];			//0x130 SBS_EXTICR1 | 0x134 SBS_EXTICR2 | 0x138 SBS_EXTICR3 | 0x13C SBS_EXTICR4
 } SBS_RegDef_t;
 
-//===========================SDMMC CONFIGURATION===============================================
-
-//SDMMC Register Selection
+/* -------------------------------------------------------------------------- */
+/* SDMMC register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* SDMMC register map. */
 typedef struct{
 	__vo uint32_t POWER;			//0x000 SDMMC_POWER
 	__vo uint32_t CLKCR;			//0x004 SDMMC_CLKCR
@@ -1533,9 +1477,10 @@ typedef struct{
 	__vo uint32_t IDMABAR;			//0x068 SDMMC_IDMABAR
 } SDMMC_RegDef_t;
 
-//===========================SPDIFRX CONFIGURATION===============================================
-
-//SPDIFRX Register Selection
+/* -------------------------------------------------------------------------- */
+/* SPDIFRX register layout                                                    */
+/* -------------------------------------------------------------------------- */
+/* SPDIFRX register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 SPDIFRX_CR
 	__vo uint32_t IMR;			//0x004 SPDIFRX_IMR
@@ -1546,9 +1491,10 @@ typedef struct{
 	__vo uint32_t DIR;			//0x018 SPDIFRX_DIR
 } SPDIFRX_RegDef_t;
 
-//===========================SPI CONFIGURATION===============================================
-
-//SPI Register Selection
+/* -------------------------------------------------------------------------- */
+/* SPI register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* SPI register map. */
 typedef struct{
 	__vo uint32_t CR1;			//0x000 SPI_CR1
 	__vo uint32_t CR2;			//0x004 SPI_CR2
@@ -1569,9 +1515,10 @@ typedef struct{
 	__vo uint32_t I2SCFGR;			//0x050 SPI_I2SCFGR
 } SPI_RegDef_t;
 
-//===========================TAMP CONFIGURATION===============================================
-
-//TAMP Register Selection
+/* -------------------------------------------------------------------------- */
+/* TAMP register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* TAMP register map. */
 typedef struct{
 	__vo uint32_t CR1;			//0x000 TAMP_CR1
 	__vo uint32_t CR2;			//0x004 TAMP_CR2
@@ -1594,9 +1541,10 @@ typedef struct{
 	__vo uint32_t RPCFGR;			//0x054 TAMP_RPCFGR
 } TAMP_RegDef_t;
 
-//===========================TIM CONFIGURATION===============================================
-
-//TIM Register Selection
+/* -------------------------------------------------------------------------- */
+/* TIM register layout                                                        */
+/* -------------------------------------------------------------------------- */
+/* TIM register map. */
 typedef struct{
 	__vo uint32_t CR1;			//0x000 TIMx_CR1
 	__vo uint32_t CR2;			//0x004 TIMx_CR2
@@ -1627,9 +1575,10 @@ typedef struct{
 	__vo uint32_t DMAR;			//0x3E0 TIMx_DMAR
 } TIM_RegDef_t;
 
-//===========================TIM1 CONFIGURATION===============================================
-
-//TIM1 Register Selection
+/* -------------------------------------------------------------------------- */
+/* TIM1 register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* TIM1 register map. */
 typedef struct{
 	__vo uint32_t CR1;			//0x000 TIM1_CR1
 	__vo uint32_t CR2;			//0x004 TIM1_CR2
@@ -1662,9 +1611,10 @@ typedef struct{
 	__vo uint32_t DMAR;			//0x3E0 TIM1_DMAR
 } TIM1_RegDef_t;
 
-//===========================TIM15 CONFIGURATION===============================================
-
-//TIM15 Register Selection
+/* -------------------------------------------------------------------------- */
+/* TIM15 register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* TIM15 register map. */
 typedef struct{
 	__vo uint32_t CR1;			//0x000 TIM15_CR1
 	__vo uint32_t CR2;			//0x004 TIM15_CR2
@@ -1694,9 +1644,10 @@ typedef struct{
 	__vo uint32_t DMAR;			//0x3E0 TIM15_DMAR
 } TIM15_RegDef_t;
 
-//===========================UCPD CONFIGURATION===============================================
-
-//UCPD Register Selection
+/* -------------------------------------------------------------------------- */
+/* UCPD register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* UCPD register map. */
 typedef struct{
 	__vo uint32_t CFGR1;			//0x000 UCPD_CFGR1
 	__vo uint32_t CFGR2;			//0x004 UCPD_CFGR2
@@ -1715,9 +1666,10 @@ typedef struct{
 	__vo uint32_t RX_ORDEXTR2;			//0x038 UCPD_RX_ORDEXTR2
 } UCPD_RegDef_t;
 
-//===========================USART CONFIGURATION===============================================
-
-//USART Register Selection
+/* -------------------------------------------------------------------------- */
+/* USART register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* USART register map. */
 typedef struct{
 	__vo uint32_t CR1;			//0x000 USART_CR1
 	__vo uint32_t CR2;			//0x004 USART_CR2
@@ -1733,26 +1685,29 @@ typedef struct{
 	__vo uint32_t PRESC;			//0x02C USART_PRESC
 } USART_RegDef_t;
 
-//===========================VREFBUF CONFIGURATION===============================================
-
-//VREFBUF Register Selection
+/* -------------------------------------------------------------------------- */
+/* VREFBUF register layout                                                    */
+/* -------------------------------------------------------------------------- */
+/* VREFBUF register map. */
 typedef struct{
 	__vo uint32_t CSR;			//0x000 VREFBUF_CSR
 	__vo uint32_t CCR;			//0x004 VREFBUF_CCR
 } VREFBUF_RegDef_t;
 
-//===========================WWDG CONFIGURATION===============================================
-
-//WWDG Register Selection
+/* -------------------------------------------------------------------------- */
+/* WWDG register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* WWDG register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 WWDG_CR
 	__vo uint32_t CFR;			//0x004 WWDG_CFR
 	__vo uint32_t SR;			//0x008 WWDG_SR
 } WWDG_RegDef_t;
 
-//===========================XSPI CONFIGURATION===============================================
-
-//XSPI Register Selection
+/* -------------------------------------------------------------------------- */
+/* XSPI register layout                                                       */
+/* -------------------------------------------------------------------------- */
+/* XSPI register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 XSPI_CR
 	uint32_t reserved_1;			//0x004 ---
@@ -1813,16 +1768,18 @@ typedef struct{
 	__vo uint32_t CALSIR;			//0x228 XSPI_CALSIR
 } XSPI_RegDef_t;
 
-//===========================XSPIM CONFIGURATION===============================================
-
-//XSPIM Register Selection
+/* -------------------------------------------------------------------------- */
+/* XSPIM register layout                                                      */
+/* -------------------------------------------------------------------------- */
+/* XSPIM register map. */
 typedef struct{
 	__vo uint32_t CR;			//0x000 XSPIM_CR
 } XSPIM_RegDef_t;
 
 
-//===========================PERIPHERAL DEFINITIONS=============================================
-
+/* -------------------------------------------------------------------------- */
+/* Peripheral instance definitions                                            */
+/* -------------------------------------------------------------------------- */
 #define GPIOA							((GPIO_RegDef_t*)GPIOA_BASEADDR)
 #define GPIOB                           ((GPIO_RegDef_t*)GPIOB_BASEADDR)
 #define GPIOC                           ((GPIO_RegDef_t*)GPIOC_BASEADDR)
@@ -1892,7 +1849,7 @@ typedef struct{
 
 #define GPDMA1                          ((GPDMA_RegDef_t*)GPDMA1_BASEADDR)
 #define ADC1_ADC2                       ((ADC_RegDef_t*)ADC1_ADC2_BASEADDR)
-#define ETH1                            ((ETH_RegDef_t*)ETH1_BASEADDR)
+#define ETH		                        ((ETH_RegDef_t*)ETH1_BASEADDR)
 #define ADF1                            ((ADF_RegDef_t*)ADF1_BASEADDR)
 #define OTG_HS                          ((OTG_RegDef_t*)OTG_HS_BASEADDR)
 #define OTG_FS                          ((OTG_RegDef_t*)OTG_FS_BASEADDR)
@@ -1939,13 +1896,13 @@ typedef struct{
 #define CRC                             ((CRC_RegDef_t*)CRC_BASEADDR)
 
 
-/*
- *=============================================================================================
- *============================CLOCK ENABLE / DISABLE MACROS=====================================
- *=============================================================================================
- */
+/* -------------------------------------------------------------------------- */
+/* CLOCK ENABLE DISABLE MACROS                                                */
+/* -------------------------------------------------------------------------- */
 
-//===========================GPIOx CLOCK ENABLE MACROS==========================================
+/* -------------------------------------------------------------------------- */
+/* GPIOx clock enable macros                                                  */
+/* -------------------------------------------------------------------------- */
 #define GPIOA_PCLK_EN()                 (RCC->AHB4ENR |= (1UL << 0U))
 #define GPIOB_PCLK_EN()                 (RCC->AHB4ENR |= (1UL << 1U))
 #define GPIOC_PCLK_EN()                 (RCC->AHB4ENR |= (1UL << 2U))
@@ -1972,7 +1929,9 @@ typedef struct{
 #define GPIOO_PCLK_DI()                 (RCC->AHB4ENR &= ~(1UL << 14U))
 #define GPIOP_PCLK_DI()                 (RCC->AHB4ENR &= ~(1UL << 15U))
 
-//===========================TIMx CLOCK ENABLE MACROS==========================================
+/* -------------------------------------------------------------------------- */
+/* TIMx clock enable macros                                                   */
+/* -------------------------------------------------------------------------- */
 #define TIM1_PCLK_EN()                  (RCC->APB2ENR |= (1UL << 0U))
 #define TIM2_PCLK_EN()                  (RCC->APB1ENR1 |= (1UL << 0U))
 #define TIM3_PCLK_EN()                  (RCC->APB1ENR1 |= (1UL << 1U))
@@ -2003,7 +1962,9 @@ typedef struct{
 #define TIM17_PCLK_DI()                 (RCC->APB2ENR &= ~(1UL << 18U))
 #define TIM9_PCLK_DI()                  (RCC->APB2ENR &= ~(1UL << 19U))
 
-//===========================LPTIMx CLOCK ENABLE MACROS========================================
+/* -------------------------------------------------------------------------- */
+/* LPTIMx clock enable macros                                                 */
+/* -------------------------------------------------------------------------- */
 #define LPTIM1_PCLK_EN()                (RCC->APB1ENR1 |= (1UL << 9U))
 #define LPTIM2_PCLK_EN()                (RCC->APB4ENR |= (1UL << 9U))
 #define LPTIM3_PCLK_EN()                (RCC->APB4ENR |= (1UL << 10U))
@@ -2016,7 +1977,9 @@ typedef struct{
 #define LPTIM4_PCLK_DI()                (RCC->APB4ENR &= ~(1UL << 11U))
 #define LPTIM5_PCLK_DI()                (RCC->APB4ENR &= ~(1UL << 12U))
 
-//===========================I2Cx/I3Cx CLOCK ENABLE MACROS=====================================
+/* -------------------------------------------------------------------------- */
+/* I2Cx I3Cx clock enable macros                                              */
+/* -------------------------------------------------------------------------- */
 #define I2C1_PCLK_EN()                  (RCC->APB1ENR1 |= (1UL << 21U))
 #define I3C1_PCLK_EN()                  (RCC->APB1ENR1 |= (1UL << 21U))
 #define I2C2_PCLK_EN()                  (RCC->APB1ENR1 |= (1UL << 22U))
@@ -2027,7 +1990,9 @@ typedef struct{
 #define I2C2_PCLK_DI()                  (RCC->APB1ENR1 &= ~(1UL << 22U))
 #define I2C3_PCLK_DI()                  (RCC->APB1ENR1 &= ~(1UL << 23U))
 
-//===========================SPIx CLOCK ENABLE MACROS==========================================
+/* -------------------------------------------------------------------------- */
+/* SPIx clock enable macros                                                   */
+/* -------------------------------------------------------------------------- */
 #define SPI1_PCLK_EN()                  (RCC->APB2ENR |= (1UL << 12U))
 #define SPI2_PCLK_EN()                  (RCC->APB1ENR1 |= (1UL << 14U))
 #define SPI3_PCLK_EN()                  (RCC->APB1ENR1 |= (1UL << 15U))
@@ -2042,7 +2007,9 @@ typedef struct{
 #define SPI5_PCLK_DI()                  (RCC->APB2ENR &= ~(1UL << 20U))
 #define SPI6_PCLK_DI()                  (RCC->APB4ENR &= ~(1UL << 5U))
 
-//===========================USARTx/UARTx CLOCK ENABLE MACROS==================================
+/* -------------------------------------------------------------------------- */
+/* USARTx UARTx clock enable macros                                           */
+/* -------------------------------------------------------------------------- */
 #define USART1_PCLK_EN()                (RCC->APB2ENR |= (1UL << 4U))
 #define USART2_PCLK_EN()                (RCC->APB1ENR1 |= (1UL << 17U))
 #define USART3_PCLK_EN()                (RCC->APB1ENR1 |= (1UL << 18U))
@@ -2061,7 +2028,9 @@ typedef struct{
 #define UART8_PCLK_DI()                 (RCC->APB1ENR1 &= ~(1UL << 31U))
 #define LPUART1_PCLK_DI()               (RCC->APB4ENR &= ~(1UL << 3U))
 
-//===========================AHB1 PERIPHERAL CLOCK ENABLE MACROS==============================
+/* -------------------------------------------------------------------------- */
+/* AHB1 PERIPHERAL clock enable macros                                        */
+/* -------------------------------------------------------------------------- */
 #define GPDMA1_PCLK_EN()                (RCC->AHB1ENR |= (1UL << 4U))
 #define ADC12_PCLK_EN()                 (RCC->AHB1ENR |= (1UL << 5U))
 #define ETH1MAC_PCLK_EN()               (RCC->AHB1ENR |= (1UL << 15U))
@@ -2084,7 +2053,9 @@ typedef struct{
 #define OTG_FS_PCLK_DI()                (RCC->AHB1ENR &= ~(1UL << 27U))
 #define ADF1_PCLK_DI()                  (RCC->AHB1ENR &= ~(1UL << 31U))
 
-//===========================AHB2 PERIPHERAL CLOCK ENABLE MACROS==============================
+/* -------------------------------------------------------------------------- */
+/* AHB2 PERIPHERAL clock enable macros                                        */
+/* -------------------------------------------------------------------------- */
 #define PSSI_PCLK_EN()                  (RCC->AHB2ENR |= (1UL << 1U))
 #define SDMMC2_PCLK_EN()                (RCC->AHB2ENR |= (1UL << 9U))
 #define CORDIC_PCLK_EN()                (RCC->AHB2ENR |= (1UL << 14U))
@@ -2097,7 +2068,9 @@ typedef struct{
 #define SRAM1_PCLK_DI()                 (RCC->AHB2ENR &= ~(1UL << 29U))
 #define SRAM2_PCLK_DI()                 (RCC->AHB2ENR &= ~(1UL << 30U))
 
-//===========================AHB3 PERIPHERAL CLOCK ENABLE MACROS==============================
+/* -------------------------------------------------------------------------- */
+/* AHB3 PERIPHERAL clock enable macros                                        */
+/* -------------------------------------------------------------------------- */
 #define RNG_PCLK_EN()                   (RCC->AHB3ENR |= (1UL << 0U))
 #define HASH_PCLK_EN()                  (RCC->AHB3ENR |= (1UL << 1U))
 #define CRYP_PCLK_EN()                  (RCC->AHB3ENR |= (1UL << 2U))
@@ -2110,14 +2083,18 @@ typedef struct{
 #define SAES_PCLK_DI()                  (RCC->AHB3ENR &= ~(1UL << 4U))
 #define PKA_PCLK_DI()                   (RCC->AHB3ENR &= ~(1UL << 6U))
 
-//===========================AHB4 PERIPHERAL CLOCK ENABLE MACROS==============================
+/* -------------------------------------------------------------------------- */
+/* AHB4 PERIPHERAL clock enable macros                                        */
+/* -------------------------------------------------------------------------- */
 #define CRC_PCLK_EN()                   (RCC->AHB4ENR |= (1UL << 19U))
 #define BKPRAM_PCLK_EN()                (RCC->AHB4ENR |= (1UL << 28U))
 
 #define CRC_PCLK_DI()                   (RCC->AHB4ENR &= ~(1UL << 19U))
 #define BKPRAM_PCLK_DI()                (RCC->AHB4ENR &= ~(1UL << 28U))
 
-//===========================AHB5 PERIPHERAL CLOCK ENABLE MACROS==============================
+/* -------------------------------------------------------------------------- */
+/* AHB5 PERIPHERAL clock enable macros                                        */
+/* -------------------------------------------------------------------------- */
 #define HPDMA1_PCLK_EN()                (RCC->AHB5ENR |= (1UL << 0U))
 #define DMA2D_PCLK_EN()                 (RCC->AHB5ENR |= (1UL << 1U))
 #define JPEG_PCLK_EN()                  (RCC->AHB5ENR |= (1UL << 3U))
@@ -2146,7 +2123,9 @@ typedef struct{
 #define GPU2D_PCLK_DI()                 (RCC->AHB5ENR &= ~(1UL << 20U))
 #define MCE3_PCLK_DI()                  (RCC->AHB5ENR &= ~(1UL << 4U))
 
-//===========================APB1 PERIPHERAL CLOCK ENABLE MACROS==============================
+/* -------------------------------------------------------------------------- */
+/* APB1 PERIPHERAL clock enable macros                                        */
+/* -------------------------------------------------------------------------- */
 #define WWDG_PCLK_EN()                  (RCC->APB1ENR1 |= (1UL << 11U))
 #define SPDIFRX1_PCLK_EN()              (RCC->APB1ENR1 |= (1UL << 16U))
 #define CEC_PCLK_EN()                   (RCC->APB1ENR1 |= (1UL << 27U))
@@ -2167,14 +2146,18 @@ typedef struct{
 #define FDCAN2_PCLK_DI()                FDCAN_PCLK_DI()
 #define UCPD1_PCLK_DI()                 (RCC->APB1ENR2 &= ~(1UL << 27U))
 
-//===========================APB2 PERIPHERAL CLOCK ENABLE MACROS==============================
+/* -------------------------------------------------------------------------- */
+/* APB2 PERIPHERAL clock enable macros                                        */
+/* -------------------------------------------------------------------------- */
 #define SAI1_PCLK_EN()                  (RCC->APB2ENR |= (1UL << 22U))
 #define SAI2_PCLK_EN()                  (RCC->APB2ENR |= (1UL << 23U))
 
 #define SAI1_PCLK_DI()                  (RCC->APB2ENR &= ~(1UL << 22U))
 #define SAI2_PCLK_DI()                  (RCC->APB2ENR &= ~(1UL << 23U))
 
-//===========================APB4 PERIPHERAL CLOCK ENABLE MACROS==============================
+/* -------------------------------------------------------------------------- */
+/* APB4 PERIPHERAL clock enable macros                                        */
+/* -------------------------------------------------------------------------- */
 #define SBS_PCLK_EN()                   (RCC->APB4ENR |= (1UL << 1U))
 #define LPUART1_PCLK_EN()               (RCC->APB4ENR |= (1UL << 3U))
 #define VREFBUF_PCLK_EN()               (RCC->APB4ENR |= (1UL << 15U))
@@ -2187,7 +2170,9 @@ typedef struct{
 #define RTCAPB_PCLK_DI()                (RCC->APB4ENR &= ~(1UL << 16U))
 #define DTS_PCLK_DI()                   (RCC->APB4ENR &= ~(1UL << 26U))
 
-//===========================APB5 PERIPHERAL CLOCK ENABLE MACROS==============================
+/* -------------------------------------------------------------------------- */
+/* APB5 PERIPHERAL clock enable macros                                        */
+/* -------------------------------------------------------------------------- */
 #define LTDC_PCLK_EN()                  (RCC->APB5ENR |= (1UL << 1U))
 #define DCMIPP_PCLK_EN()                (RCC->APB5ENR |= (1UL << 2U))
 #define GFXTIM_PCLK_EN()                (RCC->APB5ENR |= (1UL << 4U))
@@ -2196,151 +2181,396 @@ typedef struct{
 #define DCMIPP_PCLK_DI()                (RCC->APB5ENR &= ~(1UL << 2U))
 #define GFXTIM_PCLK_DI()                (RCC->APB5ENR &= ~(1UL << 4U))
 
+/* -------------------------------------------------------------------------- */
+/* Cortex-M7 MPU definitions                                                  */
+/* -------------------------------------------------------------------------- */
+#define MPU_BASEADDR					(0xE000ED90UL)
+
+typedef struct{
+	__vo uint32_t TYPE;					//0x00 MPU Type Register
+	__vo uint32_t CTRL;					//0x04 MPU Control Register
+	__vo uint32_t RNR;					//0x08 MPU regon number register
+	__vo uint32_t RBAR;					//0x0C MPU region base address register
+	__vo uint32_t RASR;					//0x10 MPU region attribute and size register
+}MPU_RegDef_t;
+
+#define MPU								((MPU_RegDef_t*)MPU_BASEADDR)
+
 /*
- *=============================================================================================
- *============================OTHER MACROS=====================================
- *=============================================================================================
+ * MPU_CTRL Bits
+ */
+#define MPU_CTRL_ENABLE 				0U		//Enables the MPU
+#define MPU_CTRL_HFNMIENA				1U		//Enables the operation of MPU during hard fault, NMI, and FAULTMASK handlers
+#define MPU_CTRL_PRIVDEFENA				2U		//Enables privileged software access to the default memory map
+
+/*
+ * MPU_RASR Bits
+ */
+#define MPU_RASR_ENABLE					0U		//Region enable bit.
+#define MPU_RASR_SIZE					1U		//Specifies the size of the MPU protection region. The minimum permitted value is 4 (0b00100) for 32 Bytes, and the maximum is 31 (0b11111) for 4Gbytes.
+#define MPU_RASR_SRD					8U		//Subregion disable bits
+#define MPU_RASR_B						16U		//Memory access attributes
+#define MPU_RASR_C						17U		//
+#define MPU_RASR_S						18U
+#define MPU_RASR_TEX					19U
+#define MPU_RASR_AP						24U
+#define MPU_RASR_XN						28U
+
+
+/* -------------------------------------------------------------------------- */
+/* OTHER MACROS                                                               */
+/* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* SBS bit position macros                                                    */
+/* -------------------------------------------------------------------------- */
+/*
+ * Bit position definitions for SBS_PMCR
+ */
+#define SBS_PMCR_ETH_PHYSEL			21U		// Ethernet PHY interface selection, 3 bits: [23:21]
+
+/*
+ * SBS_PMCR ETH_PHYSEL values
+ */
+#define SBS_PMCR_ETH_PHYSEL_MII		0U		// 000: GMII or MII
+#define SBS_PMCR_ETH_PHYSEL_RMII	4U		// 100: RMII
+
+/* -------------------------------------------------------------------------- */
+/* Ethernet bit position macros                                               */
+/* -------------------------------------------------------------------------- */
+/*
+ * ETH_DMAMR bits
+ */
+#define ETH_DMAMR_SWR					0U		//Software reset
+
+/*
+ * ETH_MACMDIOAR bits
+ *
+ * MACMDIOAR:
+ * - MB			: MDIO busy
+ * - C45E   	: Clause 45 enable (if not enable Clause 22)
+ * - GOC[1:0]	: MII Operation Command
+ * - SKAP		: Skip address packet
+ * - CR[3:0]	: CSR/MDC Clock Range
+ * - NTC[2:0]	: Number of trailing clocks
+ * - RDA[4:0]	: Register/device address
+ * - PA[4:0]	: PHY address
+ * - BTB		: Back-to-back transactions
+ * - PSE		: Preamble suppression enable
+ */
+#define ETH_MACMDIOAR_MB				0U
+#define ETH_MACMDIOAR_C45E				1U
+#define ETH_MACMDIOAR_GOC				2U
+#define ETH_MACDMIOAR_SKAP				4U
+#define ETH_MACMDIOAR_CR				8U
+#define ETH_MACMDIOAR_NTC				12U
+#define ETH_MACMDIOAR_RDA				16U
+#define ETH_MACMDIOAR_PA				21U
+#define ETH_MACMDIOAR_BTB				26U
+#define ETH_MACMDIOAR_PSE				27U
+
+/*
+ * ETH_MACMDIODR bits
+ */
+#define ETH_MACMDIODR_MD				0U		//MDIO Data, 16 bit
+
+/* -------------------------------------------------------------------------- */
+/* ETH DMA Descriptor Macros                                                  */
+/* -------------------------------------------------------------------------- */
+/*
+ * RX descriptor read-format RDES3 bits.
+ *
+ * These are written by software before giving the descriptor to DMA.
+ */
+#define ETH_RDES3_OWN					(1UL << 31)		//When this bit is set, it indicates that the DMA owns the descriptor.
+#define ETH_RDES3_IOC					(1UL << 30)		//When this bit is set, an interrupt is issued to the application when the DMA closes this descriptor.
+#define ETH_RDES3_BUF2V					(1UL << 25)		//When this bit is set, it indicates to the DMA that the buffer 2 address specified in RDES2 is valid.
+#define ETH_RDES3_BUF1V					(1UL << 24)		//When set, this indicates to the DMA that the buffer 1 address specified in RDES0 is valid.
+
+/*
+ * RX Descriptor write-back RDES3 bits
+ *
+ * These are written by DMA after packet reception
+ */
+#define ETH_RDES3_WB_OWN				(1UL << 31)		//The DMA owns the descriptor
+#define ETH_RDES3_WB_CTXT				(1UL << 30)		//When this bit is set, it indicates that the current descriptor is a context type descriptor. The DMA writes 0 to this bit for normal receive descriptor.
+#define ETH_RDES3_WB_FD					(1UL << 29)		//When this bit is set, it indicates that this descriptor contains the first buffer of the packet.
+#define ETH_RDES3_WB_LD					(1UL << 28)		//When this bit is set, it indicates that the buffers to which this descriptor is pointing are the last buffers of the packet.
+#define ETH_RDES3_WB_ES					(1UL << 15)
+#define ETH_RDES3_WB_PL_MASK			(0x7FFFUL)		//Bits between [0:14]
+/*
+ * Notes on: ETH_RDES3_WB_ES:
+ *
+ * When this bit is set, it indicates the logical OR of the following bits:
+ * RDES3[19]: Dribble Error
+ * RDES3[20]: Receive Error
+ * RDES3[21]: Overflow Error
+ * RDES3[22]: Watchdog timeout
+ * RDES3[23]: Giant Packet
+ * RDES3[24]: CRC Error
+ * This field is valid only when the LD bit of RDES3 is set
  */
 
-//================================= I2C Bit Position Macros =================================
+/* -------------------------------------------------------------------------- */
+/* ETH MAC bit position macros                                                */
+/* -------------------------------------------------------------------------- */
+/*
+ * @ETH_MACCR_MODES
+ * Bit position definitions for ETH_MACCR: Operating Mode Configuration Register
+ */
+#define ETH_MACCR_RE					0U		// Receiver enable
+#define ETH_MACCR_TE					1U		// Transmitter enable
+#define ETH_MACCR_PRELEN				2U		// Preamble length for transmit packets
+#define ETH_MACCR_DC					4U		// Deferral check
+#define ETH_MACCR_BL					5U		// Back-off limit
+#define ETH_MACCR_DR					8U		// Disable retry
+#define ETH_MACCR_DCRS					9U		// Disable Carrier Sense During Transmission
+#define ETH_MACCR_DO					10U		// Disable Receive Own
+#define ETH_MACCR_ECRSFD				11U		// Enable Carrier Sense Before Transmission in Full-duplex mode
+#define ETH_MACCR_LM					12U		// Loopback Mode
+#define ETH_MACCR_DM					13U		// Duplex mode: (When Set full-duplex)
+#define ETH_MACCR_FES					14U		// Fast Ethernet speed (0: 10 MBit/s, 1: 100 MBit/s
+#define ETH_MACCR_JE					16U		// Jumbo Packet Enable (When set, MAC allows jumbo packets of 9,018 bytes without reporting a giant packet error
+#define ETH_MACCR_JD					17U		// When this bit is set, the MAC disables the jabber timer on the transmitter.
+#define ETH_MACCR_WD					19U		// When this bit is set, the MAC disables the watchdog timer on the transmitter.
+#define ETH_MACCR_ACS					20U		// Automatic Pad or CRC Stripping
+#define ETH_MACCR_CST					21U		// CRC Stripping for Type Packets
+#define ETH_MACCR_S2KP					22U		// IEEE 802.3as Support for 2K Packets
+#define ETH_MACCR_GPSLCE				23U		// Giant Packet Size Limit Control Enable
+#define ETH_MACCR_IPG					24U		// Inter-Packet Gap
+#define ETH_MACCR_IPC					27U		// Checksum Offload
+#define ETH_MACCR_SARC					28U		// Source Address Insertation or Replacement Control
+#define ETH_MACCR_ARPEN					31U		// ARP Offload Enable
+
+/*
+ * Bit position masks for ETH_MACCR: Operating Mode Configuration Register
+ */
+#define ETH_MACCR_RE_MSK				(1U << ETH_MACCR_RE)		//
+#define ETH_MACCR_TE_MSK				(1U << ETH_MACCR_TE)		//
+#define ETH_MACCR_PRELEN_MSK			(3U << ETH_MACCR_PRELEN)	//
+#define ETH_MACCR_DC_MSK				(1U << ETH_MACCR_DC)		//
+#define ETH_MACCR_BL_MSK				(3U << ETH_MACCR_BL)		//
+#define ETH_MACCR_DR_MSK				(1U << ETH_MACCR_DR)		//
+#define ETH_MACCR_DCRS_MSK				(1U << ETH_MACCR_DCRS)		// Disable Carrier Sense During Transmission
+#define ETH_MACCR_DO_MSK				(1U << ETH_MACCR_DO)		// Disable Receive Own
+#define ETH_MACCR_ECRSFD_MSK			(1U << ETH_MACCR_ECRSFD)	// Enable Carrier Sense Before Transmission in Full-duplex mode
+#define ETH_MACCR_LM_MSK				(1U << ETH_MACCR_LM)		// Loopback Mode
+#define ETH_MACCR_DM_MSK				(1U << ETH_MACCR_DM)		// Duplex mode: (When Set full-duplex)
+#define ETH_MACCR_FES_MSK				(1U << ETH_MACCR_FES)		// Fast Ethernet speed (0: 10 MBit/s, 1: 100 MBit/s
+#define ETH_MACCR_JE_MSK				(1U << ETH_MACCR_JE)		// Jumbo Packet Enable (When set, MAC allows jumbo packets of 9,018 bytes without reporting a giant packet error
+#define ETH_MACCR_JD_MSK				(1U << ETH_MACCR_JD)		// When this bit is set, the MAC disables the jabber timer on the transmitter.
+#define ETH_MACCR_WD_MSK				(1U << ETH_MACCR_WD)		// When this bit is set, the MAC disables the watchdog timer on the transmitter.
+#define ETH_MACCR_ACS_MSK				(1U << ETH_MACCR_ACS)		// Automatic Pad or CRC Stripping
+#define ETH_MACCR_CST_MSK				(1U << ETH_MACCR_CST)		// CRC Stripping for Type Packets
+#define ETH_MACCR_S2KP_MSK				(1U << ETH_MACCR_S2KP)		// IEEE 802.3as Support for 2K Packets
+#define ETH_MACCR_GPSLCE_MSK			(1U << ETH_MACCR_GPSLCE)	// Giant Packet Size Limit Control Enable
+#define ETH_MACCR_IPG_MSK				(7U << ETH_MACCR_IPG)		// Inter-Packet Gap
+#define ETH_MACCR_IPC_MSK				(1U << ETH_MACCR_IPC)		// Checksum Offload
+#define ETH_MACCR_SARC_MSK				(7U << ETH_MACCR_SARC)		// Source Address Insertation or Replacement Control
+#define ETH_MACCR_ARPEN_MSK				(1U << ETH_MACCR_ARPEN)		// ARP Offload Enable
+
+/*
+ * @ETH_MACPFR_FILTERS
+ * Bit position definitions for ETH_MACPFR: Packet Filtering Control Register
+ */
+#define ETH_MACPFR_PR					0U		// Promiscuous mode
+#define ETH_MACPFR_HUC					1U		// Hash Unicast
+#define ETH_MACPFR_HMC					2U		// Hash Multicast
+#define ETH_MACPFR_DAIF					3U		// DA Inverse Filtering
+#define ETH_MACPFR_PM					4U		// Pass All Multicast
+#define ETH_MACPFR_DBF					5U		// Disable Broadcast Packets
+#define ETH_MACPFR_PCF					6U		// Pass Control Packets
+#define ETH_MACPFR_SAIF					8U		// SA Inverse Filtering
+#define ETH_MACPFR_SAF					9U		// Source Address Filter Enable
+#define ETH_MACPFR_HPF					10U		// Hash or Perfect Filter
+#define ETH_MACPFR_VTFE					16U		// VLAN Tag Filter Enable
+#define ETH_MACPFR_IPFE					20U		// Layer 3 and Layer 4 Filter Enable
+#define ETH_MACPFR_DNTU					21U		// Drop Non-TCP/UDP over IP Packets
+#define ETH_MACPFR_RA					31U		// Receive All
+
+#define ETH_MACPFR_PR_MSK				(1UL << ETH_MACPFR_PR)
+#define ETH_MACPFR_HUC_MSK				(1UL << ETH_MACPFR_HUC)
+#define ETH_MACPFR_HMC_MSK				(1UL << ETH_MACPFR_HMC)
+#define ETH_MACPFR_DAIF_MSK				(1UL << ETH_MACPFR_DAIF)
+#define ETH_MACPFR_PM_MSK				(1UL << ETH_MACPFR_PM)
+#define ETH_MACPFR_DBF_MSK				(1UL << ETH_MACPFR_DBF)
+#define ETH_MACPFR_PCF_MSK				(3UL << ETH_MACPFR_PCF)
+#define ETH_MACPFR_SAIF_MSK				(1UL << ETH_MACPFR_SAIF)
+#define ETH_MACPFR_SAF_MSK				(1UL << ETH_MACPFR_SAF)
+#define ETH_MACPFR_HPF_MSK				(1UL << ETH_MACPFR_HPF)
+#define ETH_MACPFR_VTFE_MSK				(1UL << ETH_MACPFR_VTFE)
+#define ETH_MACPFR_IPFE_MSK				(1UL << ETH_MACPFR_IPFE)
+#define ETH_MACPFR_DNTU_MSK				(1UL << ETH_MACPFR_DNTU)
+#define ETH_MACPFR_RA_MSK				(1UL << ETH_MACPFR_RA)
+
+
+/* -------------------------------------------------------------------------- */
+/* ETH MTL bit position macros                                                */
+/* -------------------------------------------------------------------------- */
+/*
+ * Bit position definitions for ETH_MTLRXQOMR: Rx queue operating mode register
+ */
+#define ETH_MTLRXQOMR_RSF				5U		// Receive queue store and forward
+#define ETH_MTLRXQOMR_RSF_MSK			(1UL << ETH_MTLRXQOMR_RSF)
+
+
+/* -------------------------------------------------------------------------- */
+/* ETH DMA Channel bit position macros                                        */
+/* -------------------------------------------------------------------------- */
+/*
+ * Bit position definitions for ETH_DMACRXCR: Channel receive control register
+ */
+#define ETH_DMACRXCR_SR					0U		// Start or stop receive
+#define ETH_DMACRXCR_RBSZ				1U		// Receive buffer size, bits [14:1]
+
+/*
+ * Bit masks for ETH_DMACRXCR
+ */
+#define ETH_DMACRXCR_RBSZ_MASK			(0x3FFFUL << ETH_DMACRXCR_RBSZ)
+
+
+/* -------------------------------------------------------------------------- */
+/* I2C bit position macros                                                    */
+/* -------------------------------------------------------------------------- */
 /*
  * Bit position definitions for I2C_CR1
  */
-#define I2C_CR1_PE                  0U      // Peripheral enable
-#define I2C_CR1_TXIE                1U      // TX interrupt enable
-#define I2C_CR1_RXIE                2U      // RX interrupt enable
-#define I2C_CR1_ADDRIE              3U      // Address match interrupt enable
-#define I2C_CR1_NACKIE              4U      // Not acknowledge interrupt enable
-#define I2C_CR1_STOPIE              5U      // STOP detection interrupt enable
-#define I2C_CR1_TCIE                6U      // Transfer complete interrupt enable
-#define I2C_CR1_ERRIE               7U      // Error interrupt enable
+#define I2C_CR1_PE                  	0U      // Peripheral enable
+#define I2C_CR1_TXIE                	1U      // TX interrupt enable
+#define I2C_CR1_RXIE               		2U      // RX interrupt enable
+#define I2C_CR1_ADDRIE              	3U      // Address match interrupt enable
+#define I2C_CR1_NACKIE              	4U      // Not acknowledge interrupt enable
+#define I2C_CR1_STOPIE              	5U      // STOP detection interrupt enable
+#define I2C_CR1_TCIE                	6U      // Transfer complete interrupt enable
+#define I2C_CR1_ERRIE               	7U      // Error interrupt enable
 
-#define I2C_CR1_DNF                 8U      // Digital noise filter, 4 bits: [11:8]
-#define I2C_CR1_ANFOFF              12U     // Analog noise filter OFF
-#define I2C_CR1_TXDMAEN             14U     // TX DMA enable
-#define I2C_CR1_RXDMAEN             15U     // RX DMA enable
+#define I2C_CR1_DNF                 	8U      // Digital noise filter, 4 bits: [11:8]
+#define I2C_CR1_ANFOFF              	12U     // Analog noise filter OFF
+#define I2C_CR1_TXDMAEN             	14U     // TX DMA enable
+#define I2C_CR1_RXDMAEN             	15U     // RX DMA enable
 
-#define I2C_CR1_SBC                 16U     // Slave byte control
-#define I2C_CR1_NOSTRETCH           17U     // Clock stretching disable
-#define I2C_CR1_WUPEN               18U     // Wakeup from Stop mode enable
-#define I2C_CR1_GCEN                19U     // General call enable
-#define I2C_CR1_SMBHEN              20U     // SMBus host address enable
-#define I2C_CR1_SMBDEN              21U     // SMBus device default address enable
-#define I2C_CR1_ALERTEN             22U     // SMBus alert enable
-#define I2C_CR1_PECEN               23U     // Packet error checking enable
-#define I2C_CR1_FMP                 24U     // Fast-mode Plus drive enable
+#define I2C_CR1_SBC                 	16U     // Slave byte control
+#define I2C_CR1_NOSTRETCH           	17U     // Clock stretching disable
+#define I2C_CR1_WUPEN               	18U     // Wakeup from Stop mode enable
+#define I2C_CR1_GCEN                	19U     // General call enable
+#define I2C_CR1_SMBHEN              	20U     // SMBus host address enable
+#define I2C_CR1_SMBDEN             		21U     // SMBus device default address enable
+#define I2C_CR1_ALERTEN             	22U     // SMBus alert enable
+#define I2C_CR1_PECEN               	23U     // Packet error checking enable
+#define I2C_CR1_FMP                 	24U     // Fast-mode Plus drive enable
 
-#define I2C_CR1_ADDRACLR            30U     // ADDR flag automatic clear
-#define I2C_CR1_STOPFACLR           31U     // STOPF flag automatic clear
+#define I2C_CR1_ADDRACLR            	30U     // ADDR flag automatic clear
+#define I2C_CR1_STOPFACLR           	31U     // STOPF flag automatic clear
 
 /*
  * Bit position definitions for I2C_CR2
  */
-#define I2C_CR2_SADD                0U      // Slave address, 10 bits: [9:0]
-#define I2C_CR2_RD_WRN              10U     // Transfer direction
-#define I2C_CR2_ADD10               11U     // 10-bit addressing mode
-#define I2C_CR2_HEAD10R             12U     // 10-bit address header only read direction
-#define I2C_CR2_START               13U     // START generation
-#define I2C_CR2_STOP                14U     // STOP generation
-#define I2C_CR2_NACK                15U     // NACK generation
+#define I2C_CR2_SADD                	0U      // Slave address, 10 bits: [9:0]
+#define I2C_CR2_RD_WRN              	10U     // Transfer direction
+#define I2C_CR2_ADD10               	11U     // 10-bit addressing mode
+#define I2C_CR2_HEAD10R             	12U     // 10-bit address header only read direction
+#define I2C_CR2_START               	13U     // START generation
+#define I2C_CR2_STOP                	14U     // STOP generation
+#define I2C_CR2_NACK                	15U     // NACK generation
 
-#define I2C_CR2_NBYTES              16U     // Number of bytes, 8 bits: [23:16]
-#define I2C_CR2_RELOAD              24U     // NBYTES reload mode
-#define I2C_CR2_AUTOEND             25U     // Automatic end mode
-#define I2C_CR2_PECBYTE             26U     // Packet error checking byte
+#define I2C_CR2_NBYTES             		16U     // Number of bytes, 8 bits: [23:16]
+#define I2C_CR2_RELOAD              	24U     // NBYTES reload mode
+#define I2C_CR2_AUTOEND             	25U     // Automatic end mode
+#define I2C_CR2_PECBYTE            		26U     // Packet error checking byte
 
 /*
  * Bit position definitions for I2C_OAR1
  */
-#define I2C_OAR1_OA1                0U      // Own address 1, bits depend on 7/10-bit mode
-#define I2C_OAR1_OA1MODE            10U     // Own address 1 mode
-#define I2C_OAR1_OA1EN              15U     // Own address 1 enable
+#define I2C_OAR1_OA1                	0U      // Own address 1, bits depend on 7/10-bit mode
+#define I2C_OAR1_OA1MODE            	10U     // Own address 1 mode
+#define I2C_OAR1_OA1EN              	15U     // Own address 1 enable
 
 /*
  * Bit position definitions for I2C_OAR2
  */
-#define I2C_OAR2_OA2                1U      // Own address 2, 7 bits: [7:1]
-#define I2C_OAR2_OA2MSK             8U      // Own address 2 mask, 3 bits: [10:8]
-#define I2C_OAR2_OA2EN              15U     // Own address 2 enable
+#define I2C_OAR2_OA2                	1U      // Own address 2, 7 bits: [7:1]
+#define I2C_OAR2_OA2MSK             	8U      // Own address 2 mask, 3 bits: [10:8]
+#define I2C_OAR2_OA2EN              	15U     // Own address 2 enable
 
 /*
  * Bit position definitions for I2C_TIMINGR
  */
-#define I2C_TIMINGR_SCLL            0U      // SCL low period, 8 bits: [7:0]
-#define I2C_TIMINGR_SCLH            8U      // SCL high period, 8 bits: [15:8]
-#define I2C_TIMINGR_SDADEL          16U     // SDA delay, 4 bits: [19:16]
-#define I2C_TIMINGR_SCLDEL          20U     // SCL delay, 4 bits: [23:20]
-#define I2C_TIMINGR_PRESC           28U     // Timing prescaler, 4 bits: [31:28]
+#define I2C_TIMINGR_SCLL            	0U      // SCL low period, 8 bits: [7:0]
+#define I2C_TIMINGR_SCLH            	8U      // SCL high period, 8 bits: [15:8]
+#define I2C_TIMINGR_SDADEL          	16U     // SDA delay, 4 bits: [19:16]
+#define I2C_TIMINGR_SCLDEL          	20U     // SCL delay, 4 bits: [23:20]
+#define I2C_TIMINGR_PRESC           	28U     // Timing prescaler, 4 bits: [31:28]
 
 /*
  * Bit position definitions for I2C_TIMEOUTR
  */
-#define I2C_TIMEOUTR_TIMEOUTA       0U      // Bus timeout A, 12 bits: [11:0]
-#define I2C_TIMEOUTR_TIDLE          12U     // Idle clock timeout detection
-#define I2C_TIMEOUTR_TIMOUTEN       15U     // Clock timeout enable
+#define I2C_TIMEOUTR_TIMEOUTA       	0U      // Bus timeout A, 12 bits: [11:0]
+#define I2C_TIMEOUTR_TIDLE          	12U     // Idle clock timeout detection
+#define I2C_TIMEOUTR_TIMOUTEN       	15U     // Clock timeout enable
 
-#define I2C_TIMEOUTR_TIMEOUTB       16U     // Bus timeout B, 12 bits: [27:16]
-#define I2C_TIMEOUTR_TEXTEN         31U     // Extended clock timeout enable
+#define I2C_TIMEOUTR_TIMEOUTB       	16U     // Bus timeout B, 12 bits: [27:16]
+#define I2C_TIMEOUTR_TEXTEN         	31U     // Extended clock timeout enable
 
 /*
  * Bit position definitions for I2C_ISR
  */
-#define I2C_ISR_TXE                 0U      // TX data register empty
-#define I2C_ISR_TXIS                1U      // TX interrupt status
-#define I2C_ISR_RXNE                2U      // RX data register not empty
-#define I2C_ISR_ADDR                3U      // Address matched
-#define I2C_ISR_NACKF               4U      // NACK received flag
-#define I2C_ISR_STOPF               5U      // STOP detection flag
-#define I2C_ISR_TC                  6U      // Transfer complete
-#define I2C_ISR_TCR                 7U      // Transfer complete reload
+#define I2C_ISR_TXE                 	0U      // TX data register empty
+#define I2C_ISR_TXIS                	1U      // TX interrupt status
+#define I2C_ISR_RXNE                	2U      // RX data register not empty
+#define I2C_ISR_ADDR                	3U      // Address matched
+#define I2C_ISR_NACKF               	4U      // NACK received flag
+#define I2C_ISR_STOPF               	5U      // STOP detection flag
+#define I2C_ISR_TC                  	6U      // Transfer complete
+#define I2C_ISR_TCR                 	7U      // Transfer complete reload
 
-#define I2C_ISR_BERR                8U      // Bus error
-#define I2C_ISR_ARLO                9U      // Arbitration lost
-#define I2C_ISR_OVR                 10U     // Overrun/underrun
-#define I2C_ISR_PECERR              11U     // PEC error
-#define I2C_ISR_TIMEOUT             12U     // Timeout or tLOW detection
-#define I2C_ISR_ALERT               13U     // SMBus alert
+#define I2C_ISR_BERR                	8U      // Bus error
+#define I2C_ISR_ARLO                	9U      // Arbitration lost
+#define I2C_ISR_OVR                 	10U     // Overrun/underrun
+#define I2C_ISR_PECERR              	11U     // PEC error
+#define I2C_ISR_TIMEOUT             	12U     // Timeout or tLOW detection
+#define I2C_ISR_ALERT               	13U     // SMBus alert
 
-#define I2C_ISR_BUSY                15U     // Bus busy
-#define I2C_ISR_DIR                 16U     // Transfer direction, target mode
-#define I2C_ISR_ADDCODE             17U     // Address match code, 7 bits: [23:17]
+#define I2C_ISR_BUSY                	15U     // Bus busy
+#define I2C_ISR_DIR                 	16U     // Transfer direction, target mode
+#define I2C_ISR_ADDCODE             	17U     // Address match code, 7 bits: [23:17]
 
 /*
  * Bit position definitions for I2C_ICR
  */
-#define I2C_ICR_ADDRCF              3U      // Address matched flag clear
-#define I2C_ICR_NACKCF              4U      // NACK flag clear
-#define I2C_ICR_STOPCF              5U      // STOP detection flag clear
+#define I2C_ICR_ADDRCF              	3U      // Address matched flag clear
+#define I2C_ICR_NACKCF              	4U      // NACK flag clear
+#define I2C_ICR_STOPCF              	5U      // STOP detection flag clear
 
-#define I2C_ICR_BERRCF              8U      // Bus error flag clear
-#define I2C_ICR_ARLOCF              9U      // Arbitration lost flag clear
-#define I2C_ICR_OVRCF               10U     // Overrun/underrun flag clear
-#define I2C_ICR_PECCF               11U     // PEC error flag clear
-#define I2C_ICR_TIMOUTCF            12U     // Timeout flag clear
-#define I2C_ICR_ALERTCF             13U     // Alert flag clear
+#define I2C_ICR_BERRCF              	8U      // Bus error flag clear
+#define I2C_ICR_ARLOCF              	9U      // Arbitration lost flag clear
+#define I2C_ICR_OVRCF               	10U     // Overrun/underrun flag clear
+#define I2C_ICR_PECCF               	11U     // PEC error flag clear
+#define I2C_ICR_TIMOUTCF            	12U     // Timeout flag clear
+#define I2C_ICR_ALERTCF             	13U     // Alert flag clear
 
 /*
  * Bit position definitions for I2C_PECR
  */
-#define I2C_PECR_PEC                0U      // Packet error checking register, 8 bits: [7:0]
+#define I2C_PECR_PEC                	0U      // Packet error checking register, 8 bits: [7:0]
 
 /*
  * Bit position definitions for I2C_RXDR
  */
-#define I2C_RXDR_RXDATA             0U      // 8-bit receive data
+#define I2C_RXDR_RXDATA             	0U      // 8-bit receive data
 
 /*
  * Bit position definitions for I2C_TXDR
  */
-#define I2C_TXDR_TXDATA             0U      // 8-bit transmit data
+#define I2C_TXDR_TXDATA             	0U      // 8-bit transmit data
 
-//================================= Interrupt IRQ Number Macros =================================
+/* -------------------------------------------------------------------------- */
+/* Interrupt IRQ number macros                                                */
+/* -------------------------------------------------------------------------- */
 /*
- * IRQ (Interrupt Request) Number of STM32H7S3 MCU
- * Source: RM0477 Rev 9, Section 19.1.2, Table 142 NVIC
+ * STM32H7S3 IRQ numbers.
  *
- * NOTE: STM32H7Rx/7Sx'te EXTI5_9 veya EXTI10_15 gibi gruplanmış IRQ yok.
- *       EXTI0 - EXTI15 ayrı ayrı IRQn değerlerine sahip.
+ * Source: RM0477 Rev 9, Section 19.1.2, Table 142.
+ * EXTI0..EXTI15 are mapped to individual IRQ lines on STM32H7Rx/7Sx.
  */
 
 #define IRQ_NO_EXTI0              		16
@@ -2360,9 +2590,7 @@ typedef struct{
 #define IRQ_NO_EXTI14             		30
 #define IRQ_NO_EXTI15             		31
 
-/*
- * IRQ Priority Levels
- */
+/* NVIC logical priority levels. */
 #define NVIC_IRQ_PRIO0					0U
 #define NVIC_IRQ_PRIO1					1U
 #define NVIC_IRQ_PRIO2					2U
@@ -2380,7 +2608,9 @@ typedef struct{
 #define NVIC_IRQ_PRIO14					14U
 #define NVIC_IRQ_PRIO15					15U
 
-//================================= Common Macros =================================
+/* -------------------------------------------------------------------------- */
+/* Common status macros                                                       */
+/* -------------------------------------------------------------------------- */
 #define ENABLE 							1U
 #define DISABLE 						0U
 

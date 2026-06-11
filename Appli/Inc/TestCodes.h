@@ -14,4 +14,11 @@ void Test_003_Led_Button_Toggle_IRQ(void);
 
 void Test_004_I2C_ssd1306(void);
 
+void Test_005_ETH_PHY_ID(void);
+void Test_006_ETH_DMA_Memory_Init(void);
+void Test_007_ETH_Raw_Frame_RX(void);
+void Test_008_ETH_UDP_Payload(void);
+
+void Test_000_ETH_Forza_Test(void);
+
 #endif /* TESTCODES_H_ */

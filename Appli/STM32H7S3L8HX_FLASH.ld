@@ -44,16 +44,17 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 __FLASH_BEGIN  = 0x08000000;
 __FLASH_SIZE   = 0x00010000;
 
-
 __RAM_BEGIN    = 0x24000000;
-__RAM_SIZE     = 0x71C00;
-__RAM_NONCACHEABLEBUFFER_SIZE = 0x400;
+__RAM_SIZE     = 0x40000;
+
+__ETH_DMA_RAM_BEGIN    = 0x24040000;
+__ETH_DMA_RAM_SIZE     = 0x4000;
 
 /* Memories definition */
 MEMORY
 {
-  RAM       (xrw) : ORIGIN = __RAM_BEGIN,    LENGTH = __RAM_SIZE
-  RAM_NONCACHEABLEBUFFER (xrw) : ORIGIN = __RAM_BEGIN + __RAM_SIZE,  LENGTH = __RAM_NONCACHEABLEBUFFER_SIZE
+  RAM       	(xrw) : ORIGIN = __RAM_BEGIN,    LENGTH = __RAM_SIZE
+  ETH_DMA_RAM 	(xrw) : ORIGIN = __ETH_DMA_RAM_BEGIN, LENGTH = __ETH_DMA_RAM_SIZE
 
   ITCM      (xrw) : ORIGIN = 0x00000000,    LENGTH = 0x00010000
   DTCM       (rw) : ORIGIN = 0x20000000,    LENGTH = 0x00010000
@@ -178,12 +179,15 @@ SECTIONS
     __bss_end__ = _ebss;
   } >RAM
 
-  RW_NONCACHEABLE :
+  .eth_dma (NOLOAD) : 
   {
-    __NONCACHEABLEBUFFER_BEGIN = .;/* create symbol for start of section */
-    KEEP(*(noncacheable_buffer))
-    __NONCACHEABLEBUFFER_END = .;  /* create symbol for start of section */
-  } > RAM_NONCACHEABLEBUFFER
+  	. = ALIGN(32);
+  	__ETH_DMA_START = .;
+  	KEEP(*(.eth_dma))
+  	KEEP(*(.eth_dma*))
+  	. = ALIGN(32);
+  	__ETH_DMA_END = .;
+  } >ETH_DMA_RAM
 
   /* User_heap_stack section, used to check that there is enough Ram  type memory left */
   ._user_heap_stack :

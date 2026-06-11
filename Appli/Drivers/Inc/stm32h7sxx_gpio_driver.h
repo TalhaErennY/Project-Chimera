@@ -10,23 +10,31 @@
 
 #include "stm32h7sxx.h"
 
+/*
+ * GPIO pin configuration structure
+ *
+ * Select configuration values from the @GPIO_xxx macro groups below.
+ */
 typedef struct{
-	uint8_t GPIO_PinNumber;				/*!<Possible Values from @GPIO_PIN_NUMBERS>*/
-	uint8_t GPIO_PinMode;				/*!<Possible Values from @GPIO_PIN_MODE>*/
-	uint8_t GPIO_PinSpeed;				/*!<Possible Values from @GPIO_OUTPUT_SPEEDS>*/
-	uint8_t GPIO_PinPuPdCtrl;
-	uint8_t GPIO_PinOPType;
-	uint8_t GPIO_PinAltFuncMode;
+	uint8_t GPIO_PinNumber;				/* Select from @GPIO_PIN_NUMBERS */
+	uint8_t GPIO_PinMode;				/* Select from @GPIO_PIN_MODES */
+	uint8_t GPIO_PinSpeed;				/* Select from @GPIO_OUTPUT_SPEEDS */
+	uint8_t GPIO_PinPuPdCtrl;			/* Select from @GPIO_PUPD_CONFIGS */
+	uint8_t GPIO_PinOPType;				/* Select from @GPIO_OUTPUT_TYPES */
+	uint8_t GPIO_PinAltFuncMode;		/* Select alternate function number from device datasheet */
 }GPIO_PinConfig_t;
 
+/*
+ * GPIO handle structure
+ */
 typedef struct{
-	GPIO_RegDef_t *pGPIOx;	//This holds the base address of the GPIO Port to which the pin belongs
-	GPIO_PinConfig_t GPIO_PinConfig; //Hold GPIO Pin configuration settings
+	GPIO_RegDef_t *pGPIOx;				/* Base address of GPIO port */
+	GPIO_PinConfig_t GPIO_PinConfig;	/* GPIO pin configuration settings */
 }GPIO_Handle_t;
 
 /*
  * @GPIO_PIN_NUMBERS
- * GPIO Pin Numbers
+ * GPIO pin number selection macros
  */
 #define GPIO_PIN_NO_0			0U
 #define GPIO_PIN_NO_1			1U
@@ -47,56 +55,56 @@ typedef struct{
 
 /*
  * @GPIO_PIN_MODES
- * GPIO Pin Modes
+ * GPIO pin mode selection macros
  */
-
-#define GPIO_MODE_IN			0U	//Input Mode
-#define	GPIO_MODE_OUT			1U	//General Purpose Output Mode
-#define GPIO_MODE_AF			2U	//Alternate Function Mode
-#define GPIO_MODE_ANALOG		3U	//Analog Mode (Reset State)
-
-//Interrupt modes
-#define GPIO_MODE_IT_FT			4U  //Falling Edge Trigger
-#define GPIO_MODE_IT_RT			5U  //Raising Edge Trigger
-#define GPIO_MODE_IT_RFT		6U  //Falling and Raising Edge Trigger
+#define GPIO_MODE_IN			0U	/* Input mode */
+#define	GPIO_MODE_OUT			1U	/* General purpose output mode */
+#define GPIO_MODE_AF			2U	/* Alternate function mode */
+#define GPIO_MODE_ANALOG		3U	/* Analog mode, reset state */
+#define GPIO_MODE_IT_FT			4U	/* Interrupt mode, falling edge trigger */
+#define GPIO_MODE_IT_RT			5U	/* Interrupt mode, rising edge trigger */
+#define GPIO_MODE_IT_RFT		6U	/* Interrupt mode, falling and rising edge trigger */
 
 /*
- * GPIO Pin Output Types
+ * @GPIO_OUTPUT_TYPES
+ * GPIO output type selection macros
  */
-#define GPIO_OP_TYPE_PP			0U  //Output Push-Pull (Reset State)
-#define GPIO_OP_TYPE_OD			1U	//Output Open-Drain
+#define GPIO_OP_TYPE_PP			0U	/* Output push-pull, reset state */
+#define GPIO_OP_TYPE_OD			1U	/* Output open-drain */
 
 /*
  * @GPIO_OUTPUT_SPEEDS
- * GPIO Output Speeds
+ * GPIO output speed selection macros
  */
-#define GPIO_OSPEED_LOW			0U	//Low Speed
-#define GPIO_OSPEED_MEDIUM		1U	//Medium Speed
-#define GPIO_OSPEED_HIGH		2U	//High Speed
-#define GPIO_OSPEED_VHIGH		3U	//Very High Speed
+#define GPIO_OSPEED_LOW			0U	/* Low speed */
+#define GPIO_OSPEED_MEDIUM		1U	/* Medium speed */
+#define GPIO_OSPEED_HIGH		2U	/* High speed */
+#define GPIO_OSPEED_VHIGH		3U	/* Very high speed */
 
 /*
- * GPIO Pull Up-Down Configurations
+ * @GPIO_PUPD_CONFIGS
+ * GPIO pull-up / pull-down selection macros
  */
-#define GPIO_PUPD_NONE			0U 	//No pull-up, pull-down
-#define GPIO_PUPD_PU			1U	//Pull-up
-#define GPIO_PUPD_PD			2U	//Pull-down
+#define GPIO_PUPD_NONE			0U 	/* No pull-up, no pull-down */
+#define GPIO_PUPD_PU			1U	/* Pull-up */
+#define GPIO_PUPD_PD			2U	/* Pull-down */
 
 
 /******************************************************************************************************
  * 								APIs Supported by This Driver
- *       For more information about the APIs check the function definitions
+ *       For more information about the APIs, check the function definitions in stm32h7sxx_gpio_driver.c
  ******************************************************************************************************/
+
 /*
  * Peripheral Clock Setup
  */
 void GPIO_PeriClockControl(GPIO_RegDef_t *pGPIOx, uint8_t ENorDI);
 
 /*
- * GPIO Init - DeInıt
+ * GPIO Init - DeInit
  */
 void GPIO_Init(GPIO_Handle_t *pGPIOHandle);
-void GPIO_DeInit(GPIO_RegDef_t *pGPIOx);  //to reset with AHB4RSTR
+void GPIO_DeInit(GPIO_RegDef_t *pGPIOx);
 
 /*
  * Data Read - Write
@@ -112,7 +120,7 @@ void GPIO_ToggleOutputPin(GPIO_RegDef_t *pGPIOx, uint8_t PinNumber);
  */
 void GPIO_IRQInterruptConfig(uint8_t IRQNumber, uint8_t ENorDI);
 void GPIO_IRQPriorityConfig(uint8_t IRQNumber, uint8_t IRQPriority);
-void GPIO_IRQHandling(uint8_t PinNumber);	//what happens if irq triggered
+void GPIO_IRQHandling(uint8_t PinNumber);
 
 
 #endif /* INC_STM32H7SXX_GPIO_DRIVER_H_ */

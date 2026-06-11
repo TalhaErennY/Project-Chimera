@@ -29,7 +29,17 @@ int main(void){
 	//Test_003_Led_Button_Toggle_IRQ();
 
 	/*I2C Driver Test Functions*/
-	Test_004_I2C_ssd1306();
+	//Test_004_I2C_ssd1306();
+
+	/*Ethernet Driver Test Functions*/
+	//Test_005_ETH_PHY_ID();
+	//Test_006_ETH_DMA_Memory_Init();
+	//Test_007_ETH_Raw_Frame_RX();
+	//Test_008_ETH_UDP_Payload();
+
+	/*Forza Test*/
+	Test_000_ETH_Forza_Test();
+
     while(1);
 
     return 0;

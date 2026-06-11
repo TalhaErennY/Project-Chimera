@@ -13,13 +13,13 @@ static uint8_t SSD1306_Buffer[SSD1306_BUFFER_SIZE];
 static uint8_t SSD1306_Dirty = 0U;
 
 /*
- * If same error occurs dont update
+ * If same data comes again, do not update dashboard area again.
  */
 static Dashboard_Data_t LastDashboardData;
 static uint8_t LastDashboardValid = 0U;
 
 /*
- * Private helpers
+ * Private Helper Functions
  */
 static uint8_t SSD1306_SendCommand(uint8_t command);
 static uint8_t SSD1306_SendCommandList(const uint8_t *pCommands, uint32_t Len);
@@ -27,7 +27,7 @@ static uint8_t SSD1306_SendData(uint8_t *pData, uint32_t Len);
 static uint8_t SSD1306_DashboardChanged(const Dashboard_Data_t *data);
 
 /*
- * SSD1306 OLED API Functions
+ * Basic OLED APIs
  */
 uint8_t SSD1306_Init(I2C_Handle_t *pI2CHandle)
 {
@@ -102,6 +102,11 @@ void SSD1306_Fill(void)
     SSD1306_Dirty = 1U;
 }
 
+/*
+ * Draw one pixel
+ *
+ * For state selection, see @SSD1306_PIXEL_STATES macros.
+ */
 void SSD1306_DrawPixel(uint8_t x, uint8_t y, uint8_t state)
 {
     uint16_t index;
@@ -134,6 +139,11 @@ void SSD1306_DrawPixel(uint8_t x, uint8_t y, uint8_t state)
     SSD1306_Dirty = 1U;
 }
 
+/*
+ * Draw rectangle border
+ *
+ * For state selection, see @SSD1306_PIXEL_STATES macros.
+ */
 void SSD1306_DrawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t state)
 {
     uint8_t i;
@@ -156,6 +166,11 @@ void SSD1306_DrawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t state)
     }
 }
 
+/*
+ * Fill rectangle area
+ *
+ * For state selection, see @SSD1306_PIXEL_STATES macros.
+ */
 void SSD1306_FillRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t state)
 {
     uint8_t i;
@@ -171,7 +186,9 @@ void SSD1306_FillRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t state)
 }
 
 /*
- * Draw Horizontal bar
+ * Draw Horizontal Bar
+ *
+ * For state selections used inside this function, see @SSD1306_PIXEL_STATES macros.
  */
 void SSD1306_DrawHBar(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t percent)
 {
@@ -202,6 +219,8 @@ void SSD1306_DrawHBar(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t percen
 
 /*
  * Draw Vertical Bar
+ *
+ * For state selections used inside this function, see @SSD1306_PIXEL_STATES macros.
  */
 void SSD1306_DrawVBar(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t percent)
 {
@@ -327,6 +346,9 @@ void SSD1306_DrawDigitLarge(uint8_t x, uint8_t y, uint8_t digit)
     }
 }
 
+/*
+ * Draw large number using 7-segment style digits
+ */
 void SSD1306_DrawNumberLarge(uint8_t x, uint8_t y, uint16_t number)
 {
     uint8_t hundreds;
@@ -399,6 +421,9 @@ static uint8_t SSD1306_DashboardChanged(const Dashboard_Data_t *data)
  * bottom sol: RL RR FL FR bars
  * right side: speed
  */
+/*
+ * Draw dashboard screen
+ */
 void SSD1306_DrawDashboard(const Dashboard_Data_t *data)
 {
     uint8_t i;
@@ -465,6 +490,9 @@ void SSD1306_DrawDashboard(const Dashboard_Data_t *data)
     SSD1306_DrawHBar(88U, 51U, 34U, 7U, (data->timer_ms > 1000U) ? 100U : (uint8_t)(data->timer_ms / 10U));
 }
 
+/*
+ * Send framebuffer to SSD1306 display RAM
+ */
 uint8_t SSD1306_UpdateScreen(void)
 {
     uint8_t page;

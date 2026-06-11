@@ -44,8 +44,9 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x24000000,   LENGTH = 456K
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 64K
+  RAM         (xrw) : ORIGIN = 0x24000000,  LENGTH = 0x40000
+  ETH_DMA_RAM (xrw)	: ORIGIN = 0x24040000,	LENGTH = 0x4000
+  FLASH       (rx)  : ORIGIN = 0x8000000,   LENGTH = 0x10000
 }
 
 /* Sections */
@@ -164,7 +165,18 @@ SECTIONS
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
   } >RAM
-
+	
+  /*Eth dma*/
+  .eth_dma (NOLOAD) :
+  {
+   . = ALIGN(32);
+   __ETH_DMA_START = .;
+   KEEP(*(.eth_dma))
+   KEEP(*(.eth_dma*))
+   . = ALIGN(32);
+   __ETH_DMA_END = .;
+   } > ETH_DMA_RAM
+   
   /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */
   ._user_heap_stack :
   {
